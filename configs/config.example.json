@@ -1,0 +1,149 @@
+{
+  "repositories": {
+    "my-local-repo": {
+      "type": "local",
+      "path": "/path/to/local/repo",
+      "auth": {
+        "type": "none"
+      },
+      "indexing": {
+        "enabled": true,
+        "excludePatterns": [
+          "*.log",
+          "node_modules",
+          ".git",
+          "vendor",
+          "target",
+          "build",
+          "dist",
+          "*.min.js",
+          "*.min.css"
+        ],
+        "includePatterns": [
+          "*.go",
+          "*.md",
+          "*.json",
+          "*.yaml",
+          "*.yml",
+          "*.txt",
+          "*.toml",
+          "*.ini"
+        ],
+        "maxFileSize": "1MB"
+      },
+      "branch": "main"
+    },
+    "multiple-projects": {
+      "type": "local",
+      "path": "C:\\Projects\\*",
+      "auth": {
+        "type": "none"
+      },
+      "indexing": {
+        "enabled": true,
+        "excludePatterns": [
+          "*.log",
+          "node_modules",
+          ".git",
+          "vendor",
+          "target",
+          "build"
+        ],
+        "includePatterns": [
+          "*.go",
+          "*.js",
+          "*.ts",
+          "*.py",
+          "*.md",
+          "*.json"
+        ],
+        "maxFileSize": "1MB"
+      },
+      "branch": "main"
+    },
+    "nested-workspaces": {
+      "type": "local",
+      "path": "~/workspaces/*/*",
+      "auth": {
+        "type": "none"
+      },
+      "indexing": {
+        "enabled": true,
+        "excludePatterns": [
+          "*.log",
+          "node_modules",
+          ".git"
+        ],
+        "includePatterns": [
+          "*.go",
+          "*.md",
+          "*.json"
+        ],
+        "maxFileSize": "1MB"
+      },
+      "branch": "main"
+    },
+    "my-remote-repo-ssh": {
+      "type": "remote",
+      "url": "git@github.com:org/repo.git",
+      "auth": {
+        "type": "ssh",
+        "keyPath": "~/.ssh/id_rsa"
+      },
+      "indexing": {
+        "enabled": true,
+        "excludePatterns": [
+          "*.log",
+          "node_modules",
+          ".git",
+          "vendor"
+        ],
+        "includePatterns": [
+          "*.js",
+          "*.ts",
+          "*.md",
+          "*.json",
+          "*.jsx",
+          "*.tsx"
+        ],
+        "maxFileSize": "1MB"
+      },
+      "branch": "main"
+    },
+    "my-remote-repo-token": {
+      "type": "remote",
+      "url": "https://github.com/org/private-repo.git",
+      "auth": {
+        "type": "token",
+        "token": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "username": "your-username"
+      },
+      "indexing": {
+        "enabled": true,
+        "excludePatterns": [
+          "*.log",
+          "target",
+          "*.class"
+        ],
+        "includePatterns": [
+          "*.java",
+          "*.md",
+          "*.xml",
+          "*.properties"
+        ],
+        "maxFileSize": "1MB"
+      },
+      "branch": "develop"
+    }
+  },
+  "cache": {
+    "path": "~/.repomix-mcp",
+    "maxSize": "1GB",
+    "ttl": "24h"
+  },
+  "server": {
+    "port": 8080,
+    "host": "localhost",
+    "logLevel": "info"
+  }
+}
