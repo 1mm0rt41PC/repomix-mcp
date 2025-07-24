@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -522,38 +524,18 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 		}
 	}
 	
-	// Look for README files
-	var readmeFile *types.IndexedFile
-	var readmePath string
+	// Look for README files from all subfolders
+	readmeFiles := s.findAllReadmeFiles(repo)
 	
-	// Common README file patterns
-	readmePatterns := []string{
-		"README.md", "readme.md", "Readme.md",
-		"README.txt", "readme.txt", "Readme.txt",
-		"README.rst", "readme.rst", "Readme.rst",
-		"README", "readme", "Readme",
-	}
-	
-	for _, pattern := range readmePatterns {
-		if file, exists := repo.Files[pattern]; exists {
-			readmeFile = &file
-			readmePath = pattern
-			break
-		}
-		
-		// Also check with leading slash
-		slashPattern := "/" + pattern
-		if file, exists := repo.Files[slashPattern]; exists {
-			readmeFile = &file
-			readmePath = slashPattern
-			break
-		}
-	}
-	
-	if readmeFile == nil {
-		s.sendToolError(w, id, fmt.Sprintf("No README file found in repository: %s", libraryID))
+	if len(readmeFiles) == 0 {
+		s.sendToolError(w, id, fmt.Sprintf("No README files found in repository: %s", libraryID))
 		return
 	}
+	
+	// Use the first (highest priority) README file for single file response
+	// Priority order: root → shallow subfolders → deeper subfolders
+	readmeFile := &readmeFiles[0]
+	readmePath := readmeFile.Path
 	
 	// Format the content based on requested format
 	content := readmeFile.Content
@@ -572,15 +554,60 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 		content = strings.Join(lines, "\n")
 	}
 	
-	// Build response
+	// Build response with multiple README files if available
 	var response strings.Builder
-	response.WriteString(fmt.Sprintf("# README from %s\n\n", libraryID))
-	response.WriteString(fmt.Sprintf("**File:** %s\n", readmePath))
-	response.WriteString(fmt.Sprintf("**Size:** %d bytes\n", readmeFile.Size))
-	response.WriteString(fmt.Sprintf("**Language:** %s\n", readmeFile.Language))
-	response.WriteString(fmt.Sprintf("**Format:** %s\n\n", format))
-	response.WriteString("---\n\n")
-	response.WriteString(content)
+	
+	if len(readmeFiles) == 1 {
+		// Single README file response
+		response.WriteString(fmt.Sprintf("# README from %s\n\n", libraryID))
+		response.WriteString(fmt.Sprintf("**File:** %s\n", readmePath))
+		response.WriteString(fmt.Sprintf("**Size:** %d bytes\n", readmeFile.Size))
+		response.WriteString(fmt.Sprintf("**Language:** %s\n", readmeFile.Language))
+		response.WriteString(fmt.Sprintf("**Format:** %s\n\n", format))
+		response.WriteString("---\n\n")
+		response.WriteString(content)
+	} else {
+		// Multiple README files response
+		response.WriteString(fmt.Sprintf("# README Files from %s\n\n", libraryID))
+		response.WriteString(fmt.Sprintf("Found %d README files in repository.\n\n", len(readmeFiles)))
+		
+		for i, file := range readmeFiles {
+			folderPath := filepath.Dir(file.Path)
+			if folderPath == "." {
+				folderPath = "(root)"
+			}
+			
+			response.WriteString(fmt.Sprintf("## README %d: %s\n", i+1, folderPath))
+			response.WriteString(fmt.Sprintf("**File:** %s\n", file.Path))
+			response.WriteString(fmt.Sprintf("**Size:** %d bytes\n", file.Size))
+			response.WriteString(fmt.Sprintf("**Language:** %s\n\n", file.Language))
+			
+			// Format content for this README
+			fileContent := file.Content
+			if format == "text" && strings.HasSuffix(strings.ToLower(file.Path), ".md") {
+				// Simple markdown to text conversion
+				fileContent = strings.ReplaceAll(fileContent, "**", "")
+				fileContent = strings.ReplaceAll(fileContent, "*", "")
+				fileContent = strings.ReplaceAll(fileContent, "`", "")
+				// Remove markdown headers
+				lines := strings.Split(fileContent, "\n")
+				for j, line := range lines {
+					if strings.HasPrefix(line, "#") {
+						lines[j] = strings.TrimLeft(line, "# ")
+					}
+				}
+				fileContent = strings.Join(lines, "\n")
+			}
+			
+			response.WriteString("```\n")
+			response.WriteString(fileContent)
+			response.WriteString("\n```\n\n")
+			
+			if i < len(readmeFiles)-1 {
+				response.WriteString("---\n\n")
+			}
+		}
+	}
 	
 	result := types.MCPToolCallResult{
 		Content: []types.MCPContent{
@@ -980,4 +1007,71 @@ func (s *Server) Stop() error {
 
 	log.Printf("MCP server stopped")
 	return nil
+}
+
+// ************************************************************************************************
+// findAllReadmeFiles finds and prioritizes all README files in a repository.
+// It returns README files sorted by priority: root → shallow → deeper subfolders.
+func (s *Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.IndexedFile {
+	var readmeFiles []types.IndexedFile
+	
+	// Find all files marked as README type
+	for _, file := range repo.Files {
+		if fileType, exists := file.Metadata["file_type"]; exists && fileType == "readme" {
+			readmeFiles = append(readmeFiles, file)
+		}
+	}
+	
+	// If no files have the metadata, fall back to pattern matching
+	if len(readmeFiles) == 0 {
+		readmePatterns := []string{
+			"README.md", "readme.md", "Readme.md", "ReadMe.md",
+			"README.txt", "readme.txt", "Readme.txt", "ReadMe.txt",
+			"README.rst", "readme.rst", "Readme.rst", "ReadMe.rst",
+			"README", "readme", "Readme", "ReadMe",
+			"README.adoc", "readme.adoc", "Readme.adoc",
+			"README.org", "readme.org", "Readme.org",
+		}
+		
+		for filePath, file := range repo.Files {
+			fileName := filepath.Base(filePath)
+			for _, pattern := range readmePatterns {
+				if fileName == pattern {
+					readmeFiles = append(readmeFiles, file)
+					break
+				}
+			}
+		}
+	}
+	
+	// Sort by priority: root first, then by folder depth, then alphabetically
+	sort.Slice(readmeFiles, func(i, j int) bool {
+		fileI := readmeFiles[i]
+		fileJ := readmeFiles[j]
+		
+		// Get folder depths
+		depthI := strings.Count(fileI.Path, string(filepath.Separator))
+		depthJ := strings.Count(fileJ.Path, string(filepath.Separator))
+		
+		// Root files (depth 0) have highest priority
+		if depthI != depthJ {
+			return depthI < depthJ
+		}
+		
+		// Same depth: prefer .md files, then alphabetical
+		extI := strings.ToLower(filepath.Ext(fileI.Path))
+		extJ := strings.ToLower(filepath.Ext(fileJ.Path))
+		
+		if extI == ".md" && extJ != ".md" {
+			return true
+		}
+		if extI != ".md" && extJ == ".md" {
+			return false
+		}
+		
+		// Alphabetical by path
+		return fileI.Path < fileJ.Path
+	})
+	
+	return readmeFiles
 }

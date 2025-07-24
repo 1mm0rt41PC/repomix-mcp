@@ -193,6 +193,22 @@ func (i *Indexer) indexRepositoryWithGo(repositoryID, localPath string, config t
 		}
 	}
 
+	// Discover and add README files from all subfolders
+	readmeFiles, err := i.findReadmeFiles(localPath, repositoryID)
+	if err != nil {
+		// Log error but don't fail indexing
+		fmt.Printf("Warning: failed to discover README files: %v\n", err)
+	} else {
+		// Add README files to repository index
+		for _, readmeFile := range readmeFiles {
+			repoIndex.Files[readmeFile.Path] = readmeFile
+		}
+		
+		// Update metadata
+		repoIndex.Metadata["readme_count"] = len(readmeFiles)
+		fmt.Printf("Added %d README files to repository index\n", len(readmeFiles))
+	}
+
 	return repoIndex, nil
 }
 
@@ -247,6 +263,22 @@ func (i *Indexer) indexRepositoryWithRepomix(repositoryID, localPath string, con
 
 	// Clean up output file
 	mock_osRemove(outputFile)
+
+	// Discover and add README files from all subfolders
+	readmeFiles, err := i.findReadmeFiles(localPath, repositoryID)
+	if err != nil {
+		// Log error but don't fail indexing
+		fmt.Printf("Warning: failed to discover README files: %v\n", err)
+	} else {
+		// Add README files to repository index
+		for _, readmeFile := range readmeFiles {
+			repoIndex.Files[readmeFile.Path] = readmeFile
+		}
+		
+		// Update metadata
+		repoIndex.Metadata["readme_count"] = len(readmeFiles)
+		fmt.Printf("Added %d README files to repository index\n", len(readmeFiles))
+	}
 
 	return repoIndex, nil
 }
@@ -533,4 +565,140 @@ func (i *Indexer) IndexSingleFile(repositoryPath, filePath string) (*types.Index
 	}
 
 	return indexedFile, nil
+}
+
+// ************************************************************************************************
+// findReadmeFiles recursively discovers README files in a repository and returns them as IndexedFiles.
+// It searches for various README file patterns in all subfolders with configurable depth limits.
+//
+// Returns:
+//   - []types.IndexedFile: List of discovered README files.
+//   - error: An error if discovery fails.
+//
+// Example usage:
+//
+//	readmeFiles, err := indexer.findReadmeFiles("/path/to/repo", "repo-id")
+//	if err != nil {
+//		return fmt.Errorf("failed to find README files: %w", err)
+//	}
+func (i *Indexer) findReadmeFiles(localPath, repositoryID string) ([]types.IndexedFile, error) {
+	if localPath == "" || repositoryID == "" {
+		return nil, fmt.Errorf("%w: invalid parameters", types.ErrInvalidConfig)
+	}
+
+	var readmeFiles []types.IndexedFile
+	maxDepth := 10 // Maximum folder depth to search
+	maxFileSize := int64(5 * 1024 * 1024) // 5MB maximum file size
+
+	// README file patterns to search for
+	readmePatterns := []string{
+		"README.md", "readme.md", "Readme.md", "ReadMe.md",
+		"README.txt", "readme.txt", "Readme.txt", "ReadMe.txt",
+		"README.rst", "readme.rst", "Readme.rst", "ReadMe.rst",
+		"README", "readme", "Readme", "ReadMe",
+		"README.adoc", "readme.adoc", "Readme.adoc",
+		"README.org", "readme.org", "Readme.org",
+	}
+
+	// Walk the directory tree
+	err := filepath.Walk(localPath, func(path string, info mock_osFileInfo, err error) error {
+		if err != nil {
+			// Log error but continue processing
+			fmt.Printf("Warning: error accessing %s: %v\n", path, err)
+			return nil
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			// Check depth limit
+			relPath, relErr := filepath.Rel(localPath, path)
+			if relErr != nil {
+				return nil
+			}
+			
+			depth := strings.Count(relPath, string(filepath.Separator))
+			if depth > maxDepth {
+				return filepath.SkipDir
+			}
+
+			// Skip hidden directories and common ignore patterns
+			dirName := info.Name()
+			if strings.HasPrefix(dirName, ".") ||
+			   dirName == "node_modules" ||
+			   dirName == "vendor" ||
+			   dirName == "__pycache__" ||
+			   dirName == "target" ||
+			   dirName == "build" ||
+			   dirName == "dist" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if file matches README patterns
+		fileName := info.Name()
+		isReadme := false
+		for _, pattern := range readmePatterns {
+			if fileName == pattern {
+				isReadme = true
+				break
+			}
+		}
+
+		if !isReadme {
+			return nil
+		}
+
+		// Check file size
+		if info.Size() > maxFileSize {
+			fmt.Printf("Warning: skipping large README file %s (%d bytes)\n", path, info.Size())
+			return nil
+		}
+
+		// Calculate relative path from repository root
+		relPath, err := filepath.Rel(localPath, path)
+		if err != nil {
+			fmt.Printf("Warning: failed to calculate relative path for %s: %v\n", path, err)
+			return nil
+		}
+
+		// Read file content
+		content, err := mock_osReadFile(path)
+		if err != nil {
+			fmt.Printf("Warning: failed to read README file %s: %v\n", path, err)
+			return nil
+		}
+
+		// Create indexed file
+		indexedFile := types.IndexedFile{
+			Path:         relPath,
+			Content:      string(content),
+			Hash:         i.calculateContentHash(string(content)),
+			Size:         info.Size(),
+			ModTime:      info.ModTime(),
+			Language:     i.detectLanguage(relPath),
+			RepositoryID: repositoryID,
+			Metadata: map[string]string{
+				"file_type":      "readme",
+				"subfolder_path": filepath.Dir(relPath),
+				"original_name":  fileName,
+			},
+		}
+
+		// Add folder depth for prioritization
+		folderDepth := strings.Count(relPath, string(filepath.Separator))
+		indexedFile.Metadata["folder_depth"] = fmt.Sprintf("%d", folderDepth)
+
+		readmeFiles = append(readmeFiles, indexedFile)
+		
+		fmt.Printf("Discovered README file: %s (size: %d bytes)\n", relPath, info.Size())
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory tree: %w", err)
+	}
+
+	fmt.Printf("Found %d README files in repository %s\n", len(readmeFiles), repositoryID)
+	return readmeFiles, nil
 }
