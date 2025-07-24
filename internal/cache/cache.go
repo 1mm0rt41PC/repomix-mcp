@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"repomix-mcp/pkg/types"
 
@@ -440,4 +441,377 @@ func (c *Cache) GetCacheStats() (map[string]interface{}, error) {
 //	}
 func (c *Cache) RunGarbageCollection() error {
 	return c.db.RunValueLogGC(0.5)
+}
+
+// ************************************************************************************************
+// InvalidateAll removes all entries from the cache.
+// This method is used by the refresh tool to force a complete cache rebuild.
+//
+// Returns:
+//   - error: An error if invalidation fails.
+//
+// Example usage:
+//
+//	err := cache.InvalidateAll()
+//	if err != nil {
+//		return fmt.Errorf("failed to invalidate cache: %w", err)
+//	}
+func (c *Cache) InvalidateAll() error {
+	return c.db.DropAll()
+}
+
+// ************************************************************************************************
+// InvalidateRepository removes a specific repository from cache (alias for DeleteRepository).
+// This method provides a clearer API for cache invalidation operations.
+//
+// Returns:
+//   - error: An error if invalidation fails.
+//
+// Example usage:
+//
+//	err := cache.InvalidateRepository("my-repo")
+//	if err != nil {
+//		return fmt.Errorf("failed to invalidate repository: %w", err)
+//	}
+func (c *Cache) InvalidateRepository(repositoryID string) error {
+	return c.DeleteRepository(repositoryID)
+}
+
+// ************************************************************************************************
+// NewCacheFromPath creates a cache instance directly from a cache directory path.
+// This method bypasses configuration loading and directly opens the BadgerDB at the specified path.
+// It's useful for cache inspection tools that need direct access without a config file.
+//
+// Returns:
+//   - *Cache: The cache instance.
+//   - error: An error if cache initialization fails.
+//
+// Example usage:
+//
+//	cache, err := NewCacheFromPath("~/.repomix-mcp")
+//	if err != nil {
+//		return fmt.Errorf("failed to open cache: %w", err)
+//	}
+//	defer cache.Close()
+func NewCacheFromPath(cachePath string) (*Cache, error) {
+	if cachePath == "" {
+		return nil, fmt.Errorf("%w: cache path is empty", types.ErrInvalidConfig)
+	}
+	
+	// Expand home directory if needed
+	if strings.HasPrefix(cachePath, "~") {
+		homeDir, err := mock_osUserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get home directory\n>    %w", err)
+		}
+		cachePath = filepath.Join(homeDir, cachePath[1:])
+	}
+	
+	// Check if cache directory exists
+	if _, err := mock_osStat(cachePath); mock_osIsNotExist(err) {
+		return nil, fmt.Errorf("%w: cache directory does not exist: %s", types.ErrCacheInitFailed, cachePath)
+	}
+	
+	// Configure BadgerDB options
+	opts := badger.DefaultOptions(cachePath)
+	opts.Logger = nil // Disable BadgerDB logging
+	
+	// Open BadgerDB
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to open BadgerDB\n>    %w", types.ErrCacheInitFailed, err)
+	}
+	
+	// Create minimal cache config for this instance
+	config := &types.CacheConfig{
+		Path:    cachePath,
+		MaxSize: "",
+		TTL:     "",
+	}
+	
+	cache := &Cache{
+		db:     db,
+		config: config,
+	}
+	
+	return cache, nil
+}
+
+// ************************************************************************************************
+// ListAllKeys returns all keys in the database with optional prefix filtering.
+// This method scans the entire keyspace and returns keys that match the specified prefix.
+// If prefix is empty, all keys are returned.
+//
+// Returns:
+//   - []string: List of keys matching the prefix.
+//   - error: An error if scanning fails.
+//
+// Example usage:
+//
+//	// Get all keys
+//	allKeys, err := cache.ListAllKeys("")
+//
+//	// Get only repository keys
+//	repoKeys, err := cache.ListAllKeys("repo:")
+//
+//	// Get only file keys
+//	fileKeys, err := cache.ListAllKeys("file:")
+func (c *Cache) ListAllKeys(prefix string) ([]string, error) {
+	var keys []string
+	
+	err := c.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false // We only need keys
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		
+		if prefix == "" {
+			// Iterate over all keys
+			for it.Rewind(); it.Valid(); it.Next() {
+				item := it.Item()
+				key := string(item.Key())
+				keys = append(keys, key)
+			}
+		} else {
+			// Iterate with prefix
+			prefixBytes := []byte(prefix)
+			for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+				item := it.Item()
+				key := string(item.Key())
+				keys = append(keys, key)
+			}
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to list keys\n>    %w", err)
+	}
+	
+	return keys, nil
+}
+
+// ************************************************************************************************
+// GetRawValue returns the raw byte value for a specific key without deserialization.
+// This method is useful for inspecting cache content without needing to know the data structure.
+//
+// Returns:
+//   - []byte: Raw value data.
+//   - error: An error if retrieval fails or key is not found.
+//
+// Example usage:
+//
+//	rawData, err := cache.GetRawValue("repo:my-project")
+//	if err != nil {
+//		return fmt.Errorf("failed to get raw value: %w", err)
+//	}
+//	fmt.Printf("Raw data: %s\n", string(rawData))
+func (c *Cache) GetRawValue(key string) ([]byte, error) {
+	if key == "" {
+		return nil, fmt.Errorf("%w: key is empty", types.ErrInvalidConfig)
+	}
+	
+	var value []byte
+	
+	err := c.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		
+		return item.Value(func(val []byte) error {
+			value = append([]byte{}, val...)
+			return nil
+		})
+	})
+	
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, fmt.Errorf("%w: %s", types.ErrRepositoryNotFound, key)
+		}
+		return nil, fmt.Errorf("failed to get raw value\n>    %w", err)
+	}
+	
+	return value, nil
+}
+
+// ************************************************************************************************
+// GetAllKeysWithValues returns all keys with their values, optionally filtered by prefix.
+// This method is useful for comprehensive cache inspection and the getcontent command without arguments.
+// Values are returned as raw bytes to avoid deserialization issues.
+//
+// Returns:
+//   - map[string][]byte: Map of keys to their raw values.
+//   - error: An error if scanning fails.
+//
+// Example usage:
+//
+//	// Get all data
+//	allData, err := cache.GetAllKeysWithValues("")
+//
+//	// Get only repository data
+//	repoData, err := cache.GetAllKeysWithValues("repo:")
+func (c *Cache) GetAllKeysWithValues(prefix string) (map[string][]byte, error) {
+	result := make(map[string][]byte)
+	
+	err := c.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = true // We need both keys and values
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		
+		if prefix == "" {
+			// Iterate over all keys
+			for it.Rewind(); it.Valid(); it.Next() {
+				item := it.Item()
+				key := string(item.Key())
+				
+				err := item.Value(func(val []byte) error {
+					result[key] = append([]byte{}, val...)
+					return nil
+				})
+				if err != nil {
+					return fmt.Errorf("failed to read value for key %s\n>    %w", key, err)
+				}
+			}
+		} else {
+			// Iterate with prefix
+			prefixBytes := []byte(prefix)
+			for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+				item := it.Item()
+				key := string(item.Key())
+				
+				err := item.Value(func(val []byte) error {
+					result[key] = append([]byte{}, val...)
+					return nil
+				})
+				if err != nil {
+					return fmt.Errorf("failed to read value for key %s\n>    %w", key, err)
+				}
+			}
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keys with values\n>    %w", err)
+	}
+	
+	return result, nil
+}
+
+// ************************************************************************************************
+// GetKeyInfo returns detailed information about a specific key including metadata.
+// This method provides comprehensive key information for verbose inspection.
+//
+// Returns:
+//   - map[string]interface{}: Key information including size, TTL, and type.
+//   - error: An error if retrieval fails or key is not found.
+//
+// Example usage:
+//
+//	info, err := cache.GetKeyInfo("repo:my-project")
+//	if err != nil {
+//		return fmt.Errorf("failed to get key info: %w", err)
+//	}
+//	fmt.Printf("Key info: %+v\n", info)
+func (c *Cache) GetKeyInfo(key string) (map[string]interface{}, error) {
+	if key == "" {
+		return nil, fmt.Errorf("%w: key is empty", types.ErrInvalidConfig)
+	}
+	
+	info := make(map[string]interface{})
+	
+	err := c.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		
+		// Basic key information
+		info["key"] = key
+		info["version"] = item.Version()
+		info["user_meta"] = item.UserMeta()
+		info["estimated_size"] = item.EstimatedSize()
+		
+		// TTL information
+		expiresAt := item.ExpiresAt()
+		if expiresAt > 0 {
+			info["expires_at"] = expiresAt
+			info["ttl_seconds"] = expiresAt - uint64(mock_timeNow().Unix())
+		} else {
+			info["expires_at"] = nil
+			info["ttl_seconds"] = nil
+		}
+		
+		// Determine key type based on prefix
+		if strings.HasPrefix(key, "repo:") {
+			info["type"] = "repository"
+			info["repository_id"] = key[5:] // Remove "repo:" prefix
+		} else if strings.HasPrefix(key, "file:") {
+			info["type"] = "file"
+			parts := strings.SplitN(key[5:], ":", 2) // Remove "file:" prefix and split
+			if len(parts) == 2 {
+				info["repository_id"] = parts[0]
+				info["file_path"] = parts[1]
+			}
+		} else {
+			info["type"] = "unknown"
+		}
+		
+		// Get value size
+		return item.Value(func(val []byte) error {
+			info["value_size"] = len(val)
+			return nil
+		})
+	})
+	
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, fmt.Errorf("%w: %s", types.ErrRepositoryNotFound, key)
+		}
+		return nil, fmt.Errorf("failed to get key info\n>    %w", err)
+	}
+	
+	return info, nil
+}
+
+// ************************************************************************************************
+// FormatValuePreview formats a value for preview display (first 42 characters).
+// This utility function safely truncates values and handles special characters.
+//
+// Returns:
+//   - string: Formatted preview string.
+//
+// Example usage:
+//
+//	preview := cache.FormatValuePreview(rawValue)
+//	fmt.Printf("Value preview: %s\n", preview)
+func (c *Cache) FormatValuePreview(value []byte) string {
+	if len(value) == 0 {
+		return "(empty)"
+	}
+	
+	// Convert to string and limit length
+	str := string(value)
+	maxLen := 42
+	
+	if len(str) <= maxLen {
+		return str
+	}
+	
+	// Truncate and add ellipsis, but ensure we don't break UTF-8
+	truncated := str[:maxLen]
+	
+	// Check if we broke a UTF-8 character at the end
+	for i := len(truncated) - 1; i >= maxLen-4 && i >= 0; i-- {
+		if truncated[i] < 0x80 || truncated[i] >= 0xC0 {
+			truncated = truncated[:i]
+			break
+		}
+	}
+	
+	return truncated + "..."
 }

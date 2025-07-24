@@ -10,8 +10,8 @@ import (
 	"hash/crc32"
 	"io"
 
+	"github.com/golang/snappy"
 	"github.com/klauspost/compress/huff0"
-	snappy "github.com/klauspost/compress/internal/snapref"
 )
 
 const (
@@ -95,9 +95,10 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 	var written int64
 	var readHeader bool
 	{
-		header := frameHeader{WindowSize: snappyMaxBlockSize}.appendTo(r.buf[:0])
-
+		var header []byte
 		var n int
+		header, r.err = frameHeader{WindowSize: snappyMaxBlockSize}.appendTo(r.buf[:0])
+
 		n, r.err = w.Write(header)
 		if r.err != nil {
 			return written, r.err
@@ -202,7 +203,7 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 			written += int64(n)
 			continue
 		case chunkTypeUncompressedData:
-			if debugEncoder {
+			if debug {
 				println("Uncompressed, chunklen", chunkLen)
 			}
 			// Section 4.3. Uncompressed data (chunk type 0x01).
@@ -245,7 +246,7 @@ func (r *SnappyConverter) Convert(in io.Reader, w io.Writer) (int64, error) {
 			continue
 
 		case chunkTypeStreamIdentifier:
-			if debugEncoder {
+			if debug {
 				println("stream id", chunkLen, len(snappyMagicBody))
 			}
 			// Section 4.1. Stream identifier (chunk type 0xff).

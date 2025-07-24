@@ -83,6 +83,13 @@ type ServerConfig struct {
 	Port     int    `json:"port" mapstructure:"port"`         // Server listening port
 	LogLevel string `json:"logLevel" mapstructure:"logLevel"` // Logging verbosity level
 	Host     string `json:"host" mapstructure:"host"`         // Server binding host
+	
+	// HTTPS Configuration
+	HTTPSEnabled bool   `json:"httpsEnabled" mapstructure:"httpsEnabled"` // Enable HTTPS server
+	HTTPSPort    int    `json:"httpsPort" mapstructure:"httpsPort"`       // HTTPS server port (default: 9443)
+	CertPath     string `json:"certPath" mapstructure:"certPath"`         // Path to TLS certificate file
+	KeyPath      string `json:"keyPath" mapstructure:"keyPath"`           // Path to TLS private key file
+	AutoGenCert  bool   `json:"autoGenCert" mapstructure:"autoGenCert"`   // Auto-generate self-signed certificate
 }
 
 // ************************************************************************************************

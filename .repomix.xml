@@ -1,0 +1,1103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<repository>
+<file_summary>
+This file is a merged representation of a subset of the codebase, containing Go files with extracted language constructs.
+The content has been processed where Go AST analysis extracted functions, structs, variables, constants, and types.
+
+<purpose>
+This file contains a Go-specific analysis of the repository's Go source code.
+It is designed to be easily consumable by AI systems for Go code analysis,
+code review, or other automated processes focusing on Go language constructs.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Individual file sections with constructs from each file
+5. Package sections with exported constructs only
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the construct signatures to understand
+  the codebase structure and relationships.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Test files (*_test.go) are excluded from this analysis
+- All constructs (both exported and unexported) are included
+- Constructs are organized by type for easy navigation
+- Line numbers and file locations are preserved for reference
+- Go AST parsing ensures accurate construct extraction
+</notes>
+
+</file_summary>
+
+<directory_structure>
+cmd\repomix-mcp\main.go
+internal\cache\cache.go
+internal\cache\mock.go
+internal\config\config.go
+internal\config\mock.go
+internal\indexer\indexer.go
+internal\indexer\mock.go
+internal\mcp\server.go
+internal\mcp\tls.go
+internal\parser\go_parser.go
+internal\repository\mock.go
+internal\repository\repository.go
+internal\search\mock.go
+internal\search\search.go
+pkg\types\errors.go
+pkg\types\types.go
+</directory_structure>
+
+<files>
+<file path="cmd\repomix-mcp\main.go" package="main">
+// Package: main
+// File: cmd\repomix-mcp\main.go
+
+var app *Application  // cmd\repomix-mcp\main.go:636
+var cacheInstance *cache.Cache  // cmd\repomix-mcp\main.go:292
+var cacheInstance *cache.Cache  // cmd\repomix-mcp\main.go:341
+var configCmd = &cobra.Command{Use: "config", Short: "Configuration management", Long: `Manage application configuration including creating example configurations.`}  // cmd\repomix-mcp\main.go:768
+var configExampleCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:776
+var configFile string  // cmd\repomix-mcp\main.go:850
+var dbPath string  // cmd\repomix-mcp\main.go:851
+var detailedKeys []map[string]interface{}  // cmd\repomix-mcp\main.go:448
+var err error  // cmd\repomix-mcp\main.go:904
+var err error  // cmd\repomix-mcp\main.go:70
+var err error  // cmd\repomix-mcp\main.go:342
+var err error  // cmd\repomix-mcp\main.go:293
+var filter string  // cmd\repomix-mcp\main.go:854
+var format string  // cmd\repomix-mcp\main.go:853
+var getContentCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:828
+var indexCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:656
+var listKeysCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:806
+var prefix string  // cmd\repomix-mcp\main.go:576
+var prefix string  // cmd\repomix-mcp\main.go:316
+var rootCmd = &cobra.Command{Use: "repomix-mcp", Short: "Context7-compatible repository indexing and MCP server", Long: `repomix-mcp provides Context7-compatible functionality for indexing internal private repositories.
+It uses repomix as the CLI indexer and serves content through an MCP server that provides the same
+functions as Context7 to AI clients.
+
+Features:
+- Index both local and remote repositories
+- Cache indexed content using BadgerDB
+- Serve content through Context7-compatible MCP tools
+- Support for authentication and incremental updates`}  // cmd\repomix-mcp\main.go:640
+var serveCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:677
+var simpleKeys []map[string]string  // cmd\repomix-mcp\main.go:480
+var validateCmd = &cobra.Command{...}  // cmd\repomix-mcp\main.go:692
+var verbose bool  // cmd\repomix-mcp\main.go:852
+
+type Application struct {
+    configManager *config.Manager
+    cache *cache.Cache
+    repoManager *repository.Manager
+    indexer *indexer.Indexer
+    searchEngine SearchInterface
+    mcpServer *mcp.Server
+}  // cmd\repomix-mcp\main.go:29
+type MockSearchEngine struct  // cmd\repomix-mcp\main.go:46
+
+type SearchInterface interface {
+    Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
+}  // cmd\repomix-mcp\main.go:40
+
+func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:60
+func formatKeysJSON(cacheInstance *cache.Cache, keys []string, verbose bool) error  // cmd\repomix-mcp\main.go:446
+func formatKeysOutput(cacheInstance *cache.Cache, keys []string, outputFormat string, verbose bool) error  // cmd\repomix-mcp\main.go:376
+func formatKeysRaw(keys []string) error  // cmd\repomix-mcp\main.go:511
+func formatKeysTable(cacheInstance *cache.Cache, keys []string, verbose bool) error  // cmd\repomix-mcp\main.go:391
+func getAllKeysContent(cacheInstance *cache.Cache, outputFormat string, filter string) error  // cmd\repomix-mcp\main.go:574
+func getSpecificKeyContent(cacheInstance *cache.Cache, key string, outputFormat string) error  // cmd\repomix-mcp\main.go:520
+func init()  // cmd\repomix-mcp\main.go:857
+func main()  // cmd\repomix-mcp\main.go:889
+func runGetContentCommand(cmd *cobra.Command, args []string) error  // cmd\repomix-mcp\main.go:340
+func runListKeysCommand(cmd *cobra.Command, args []string) error  // cmd\repomix-mcp\main.go:291
+
+func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:271
+func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:120
+func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:164
+func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:69
+func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:49
+func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:254
+func (*Application) indexExpandedRepository(alias string, repoConfig *types.RepositoryConfig) error  // cmd\repomix-mcp\main.go:195
+
+</file>
+
+<file path="internal\cache\cache.go" package="cache">
+// Package: cache
+// File: internal\cache\cache.go
+
+var file types.IndexedFile  // internal\cache\cache.go:270
+var fileData []byte  // internal\cache\cache.go:248
+var keys []string  // internal\cache\cache.go:560
+var keysToDelete [][]byte  // internal\cache\cache.go:354
+var repo types.RepositoryIndex  // internal\cache\cache.go:177
+var repoData []byte  // internal\cache\cache.go:155
+var repositories []string  // internal\cache\cache.go:293
+var value []byte  // internal\cache\cache.go:615
+
+type Cache struct {
+    db *badger.DB
+    config *types.CacheConfig
+}  // internal\cache\cache.go:22
+
+func NewCache(config *types.CacheConfig) (*Cache, error)  // internal\cache\cache.go:42
+func NewCacheFromPath(cachePath string) (*Cache, error)  // internal\cache\cache.go:496
+
+func (*Cache) Close() error  // internal\cache\cache.go:80
+func (*Cache) DeleteRepository(repositoryID string) error  // internal\cache\cache.go:335
+func (*Cache) FormatValuePreview(value []byte) string  // internal\cache\cache.go:792
+func (*Cache) GetAllKeysWithValues(prefix string) (map[string][]byte, error)  // internal\cache\cache.go:655
+func (*Cache) GetCacheStats() (map[string]interface{}, error)  // internal\cache\cache.go:386
+func (*Cache) GetFile(repositoryID string, filePath string) (*types.IndexedFile, error)  // internal\cache\cache.go:242
+func (*Cache) GetKeyInfo(key string) (map[string]interface{}, error)  // internal\cache\cache.go:720
+func (*Cache) GetRawValue(key string) ([]byte, error)  // internal\cache\cache.go:610
+func (*Cache) GetRepository(repositoryID string) (*types.RepositoryIndex, error)  // internal\cache\cache.go:149
+func (*Cache) InvalidateAll() error  // internal\cache\cache.go:459
+func (*Cache) InvalidateRepository(repositoryID string) error  // internal\cache\cache.go:476
+func (*Cache) ListAllKeys(prefix string) ([]string, error)  // internal\cache\cache.go:559
+func (*Cache) ListRepositories() ([]string, error)  // internal\cache\cache.go:292
+func (*Cache) RunGarbageCollection() error  // internal\cache\cache.go:442
+func (*Cache) StoreFile(repositoryID string, file *types.IndexedFile) error  // internal\cache\cache.go:198
+func (*Cache) StoreRepository(repo *types.RepositoryIndex) error  // internal\cache\cache.go:105
+
+</file>
+
+<file path="internal\cache\mock.go" package="cache">
+// Package: cache
+// File: internal\cache\mock.go
+
+var mock_osIsNotExist = os.IsNotExist  // internal\cache\mock.go:16
+var mock_osMkdirAll = os.MkdirAll  // internal\cache\mock.go:12
+var mock_osStat = os.Stat  // internal\cache\mock.go:15
+var mock_osUserHomeDir = os.UserHomeDir  // internal\cache\mock.go:14
+var mock_timeNow = time.Now  // internal\cache\mock.go:17
+var mock_timeParseDuration = time.ParseDuration  // internal\cache\mock.go:13
+
+</file>
+
+<file path="internal\config\config.go" package="config">
+// Package: config
+// File: internal\config\config.go
+
+var config types.Config  // internal\config\config.go:82
+var config types.Config  // internal\config\config.go:109
+
+type Manager struct {
+    config *types.Config
+    configPath string
+}  // internal\config\config.go:20
+
+func NewManager() *Manager  // internal\config\config.go:37
+
+func (*Manager) CreateExampleConfig(configPath string) error  // internal\config\config.go:435
+func (*Manager) GetConfig() *types.Config  // internal\config\config.go:324
+func (*Manager) GetRepository(alias string) (*types.RepositoryConfig, error)  // internal\config\config.go:341
+func (*Manager) GetRepositoryAliases() []string  // internal\config\config.go:367
+func (*Manager) LoadConfig(configPath string) error  // internal\config\config.go:54
+func (*Manager) LoadConfigFromJSON(jsonData []byte) error  // internal\config\config.go:108
+func (*Manager) SaveConfig(configPath string) error  // internal\config\config.go:392
+func (*Manager) validateAuth(auth *types.RepositoryAuth) error  // internal\config\config.go:200
+func (*Manager) validateCache(cache *types.CacheConfig) error  // internal\config\config.go:224
+func (*Manager) validateConfig(config *types.Config) error  // internal\config\config.go:128
+func (*Manager) validateRepository(alias string, repo *types.RepositoryConfig) error  // internal\config\config.go:162
+func (*Manager) validateServer(server *types.ServerConfig) error  // internal\config\config.go:246
+
+</file>
+
+<file path="internal\config\mock.go" package="config">
+// Package: config
+// File: internal\config\mock.go
+
+var mock_osIsNotExist = os.IsNotExist  // internal\config\mock.go:13
+var mock_osMkdirAll = os.MkdirAll  // internal\config\mock.go:14
+var mock_osReadFile = os.ReadFile  // internal\config\mock.go:16
+var mock_osStat = os.Stat  // internal\config\mock.go:12
+var mock_osUserHomeDir = os.UserHomeDir  // internal\config\mock.go:11
+var mock_osWriteFile = os.WriteFile  // internal\config\mock.go:15
+
+</file>
+
+<file path="internal\indexer\indexer.go" package="indexer">
+// Package: indexer
+// File: internal\indexer\indexer.go
+
+const StrategyGoNative   // internal\indexer\indexer.go:26
+const StrategyRepomix = iota  // internal\indexer\indexer.go:23
+
+var currentFile *FileContent  // internal\indexer\indexer.go:321
+var fileContentLines []string  // internal\indexer\indexer.go:323
+var files []FileContent  // internal\indexer\indexer.go:318
+var inFileBlock bool  // internal\indexer\indexer.go:322
+
+type IndexingStrategy = int  // internal\indexer\indexer.go:19
+
+type FileContent struct {
+    Path string
+    Content string
+}  // internal\indexer\indexer.go:305
+type Indexer struct {
+    repomixPath string
+    tempDir string
+    goParser *parser.GoParser
+}  // internal\indexer\indexer.go:45
+
+func NewIndexer() (*Indexer, error)  // internal\indexer\indexer.go:65
+
+func (*Indexer) Close() error  // internal\indexer\indexer.go:95
+func (*Indexer) DetermineIndexingStrategy(localPath string) IndexingStrategy  // internal\indexer\indexer.go:114
+func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:453
+func (*Indexer) IndexRepository(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:155
+func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:499
+func (IndexingStrategy) String() string  // internal\indexer\indexer.go:30
+func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:476
+func (*Indexer) calculateContentHash(content string) string  // internal\indexer\indexer.go:379
+func (*Indexer) detectLanguage(filePath string) string  // internal\indexer\indexer.go:397
+func (*Indexer) extractFilesFromXML(content string) ([]FileContent, error)  // internal\indexer\indexer.go:317
+func (*Indexer) indexRepositoryWithGo(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:178
+func (*Indexer) indexRepositoryWithRepomix(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:200
+func (*Indexer) parseRepomixOutput(repositoryID string, localPath string, content string) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:261
+
+</file>
+
+<file path="internal\indexer\mock.go" package="indexer">
+// Package: indexer
+// File: internal\indexer\mock.go
+
+var mock_execCommand = exec.Command  // internal\indexer\mock.go:14
+var mock_execLookPath = exec.LookPath  // internal\indexer\mock.go:13
+var mock_osIsNotExist = os.IsNotExist  // internal\indexer\mock.go:20
+var mock_osMkdirTemp = os.MkdirTemp  // internal\indexer\mock.go:15
+var mock_osReadFile = os.ReadFile  // internal\indexer\mock.go:17
+var mock_osRemove = os.Remove  // internal\indexer\mock.go:18
+var mock_osRemoveAll = os.RemoveAll  // internal\indexer\mock.go:16
+var mock_osStat = os.Stat  // internal\indexer\mock.go:19
+var mock_osWriteFile = os.WriteFile  // internal\indexer\mock.go:21
+var mock_timeNow = time.Now  // internal\indexer\mock.go:22
+
+type mock_osFileInfo = os.FileInfo  // internal\indexer\mock.go:26
+
+</file>
+
+<file path="internal\mcp\server.go" package="mcp">
+// Package: mcp
+// File: internal\mcp\server.go
+
+var docs strings.Builder  // internal\mcp\server.go:824
+var err error  // internal\mcp\server.go:502
+var errors []string  // internal\mcp\server.go:417
+var jsonRPCReq types.JSONRPCRequest  // internal\mcp\server.go:181
+var matches []string  // internal\mcp\server.go:742
+var message strings.Builder  // internal\mcp\server.go:449
+var otherFiles []types.IndexedFile  // internal\mcp\server.go:837
+var params types.MCPToolCallParams  // internal\mcp\server.go:343
+var priorityFiles []types.IndexedFile  // internal\mcp\server.go:836
+var readmeFile *types.IndexedFile  // internal\mcp\server.go:526
+var readmePath string  // internal\mcp\server.go:527
+var refreshedCount int  // internal\mcp\server.go:416
+var repo *types.RepositoryIndex  // internal\mcp\server.go:501
+var response strings.Builder  // internal\mcp\server.go:576
+
+type Server struct {
+    config *types.Config
+    cache CacheInterface
+    searchEngine SearchInterface
+    repositories map[string]*types.RepositoryIndex
+    verbose bool
+    httpServer *http.Server
+    httpsServer *http.Server
+    wg sync.WaitGroup
+}  // internal\mcp\server.go:24
+
+type CacheInterface interface {
+    GetRepositoryfunc(string) (*types.RepositoryIndex, error)
+    StoreRepositoryfunc(*types.RepositoryIndex) error
+    ListRepositoriesfunc() ([]string, error)
+    InvalidateAllfunc() error
+    InvalidateRepositoryfunc(string) error
+}  // internal\mcp\server.go:39
+type SearchInterface interface {
+    Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
+}  // internal\mcp\server.go:49
+
+func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:66
+
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:781
+func (*Server) Start() error  // internal\mcp\server.go:92
+func (*Server) Stop() error  // internal\mcp\server.go:965
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:953
+func (*Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string  // internal\mcp\server.go:821
+func (*Server) findRepositoryMatches(libraryName string) []string  // internal\mcp\server.go:741
+func (*Server) getRepositoryDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:786
+func (*Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:600
+func (*Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:484
+func (*Server) handleHealth(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:655
+func (*Server) handleInitialize(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:217
+func (*Server) handleInitialized(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:238
+func (*Server) handleMCPEndpoint(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:162
+func (*Server) handlePing(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:368
+func (*Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:409
+func (*Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:375
+func (*Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:339
+func (*Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:248
+func (*Server) parseParams(params interface{}, target interface{}) error  // internal\mcp\server.go:721
+func (*Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code int, message string, data interface{})  // internal\mcp\server.go:685
+func (*Server) sendJSONRPCResult(w http.ResponseWriter, id interface{}, result interface{})  // internal\mcp\server.go:670
+func (*Server) sendToolError(w http.ResponseWriter, id interface{}, message string)  // internal\mcp\server.go:705
+
+</file>
+
+<file path="internal\mcp\tls.go" package="mcp">
+// Package: mcp
+// File: internal\mcp\tls.go
+
+func GenerateSelfSignedCert(certPath string, keyPath string, hosts []string) error  // internal\mcp\tls.go:31
+func LoadTLSConfig(certPath string, keyPath string, autoGenCert bool, hosts []string) (*tls.Config, error)  // internal\mcp\tls.go:122
+
+</file>
+
+<file path="internal\parser\go_parser.go" package="parser">
+// Package: parser
+// File: internal\parser\go_parser.go
+
+var constructs []GoConstruct  // internal\parser\go_parser.go:269
+var constructs []GoConstruct  // internal\parser\go_parser.go:385
+var fields []string  // internal\parser\go_parser.go:442
+var goFiles []string  // internal\parser\go_parser.go:222
+var methods []string  // internal\parser\go_parser.go:469
+var params []string  // internal\parser\go_parser.go:566
+var results []string  // internal\parser\go_parser.go:577
+var sig strings.Builder  // internal\parser\go_parser.go:492
+var sig strings.Builder  // internal\parser\go_parser.go:562
+var typeStr string  // internal\parser\go_parser.go:405
+var valueStr string  // internal\parser\go_parser.go:410
+var xml strings.Builder  // internal\parser\go_parser.go:681
+
+type GoConstruct struct {
+    Type string `json:"type"`
+    Name string `json:"name"`
+    Signature string `json:"signature"`
+    Package string `json:"package"`
+    File string `json:"file"`
+    Line int `json:"line"`
+    Exported bool `json:"exported"`
+    Receiver string `json:"receiver"`
+    Parameters []string `json:"parameters"`
+    Returns []string `json:"returns"`
+    Fields []string `json:"fields"`
+    Methods []string `json:"methods"`
+    Metadata map[string]string `json:"metadata"`
+}  // internal\parser\go_parser.go:29
+type GoFileAnalysis struct {
+    FilePath string `json:"filePath"`
+    PackageName string `json:"packageName"`
+    Constructs []GoConstruct `json:"constructs"`
+}  // internal\parser\go_parser.go:47
+type GoPackageAnalysis struct {
+    PackageName string `json:"packageName"`
+    Path string `json:"path"`
+    Files []string `json:"files"`
+    Constructs map[string][]GoConstruct `json:"constructs"`
+    ExportedOnly map[string][]GoConstruct `json:"exportedOnly"`
+    Summary map[string]int `json:"summary"`
+}  // internal\parser\go_parser.go:55
+type GoParser struct {
+    fileSet *token.FileSet
+}  // internal\parser\go_parser.go:23
+
+func NewGoParser() *GoParser  // internal\parser\go_parser.go:66
+
+func (*GoParser) ParseRepository(repositoryID string, localPath string) (*types.RepositoryIndex, error)  // internal\parser\go_parser.go:75
+func (*GoParser) calculateContentHash(content string) string  // internal\parser\go_parser.go:666
+func (*GoParser) extractFunction(fn *ast.FuncDecl, filePath string, packageName string) GoConstruct  // internal\parser\go_parser.go:301
+func (*GoParser) extractInterfaceMethods(it *ast.InterfaceType) []string  // internal\parser\go_parser.go:468
+func (*GoParser) extractStructFields(st *ast.StructType) []string  // internal\parser\go_parser.go:441
+func (*GoParser) extractType(ts *ast.TypeSpec, genDecl *ast.GenDecl, filePath string, packageName string) GoConstruct  // internal\parser\go_parser.go:351
+func (*GoParser) extractValueSpec(vs *ast.ValueSpec, genDecl *ast.GenDecl, filePath string, packageName string) []GoConstruct  // internal\parser\go_parser.go:384
+func (*GoParser) findGoFiles(localPath string) ([]string, error)  // internal\parser\go_parser.go:221
+func (*GoParser) funcTypeToString(ft *ast.FuncType) string  // internal\parser\go_parser.go:561
+func (*GoParser) generateFunctionSignature(construct GoConstruct) string  // internal\parser\go_parser.go:491
+func (*GoParser) generateInterfaceSignature(construct GoConstruct) string  // internal\parser\go_parser.go:520
+func (*GoParser) generateRepomixXML(repositoryID string, localPath string, fileAnalyses map[string]*GoFileAnalysis, packageAnalyses map[string]*GoPackageAnalysis, goFiles []string) string  // internal\parser\go_parser.go:680
+func (*GoParser) generateStructSignature(construct GoConstruct) string  // internal\parser\go_parser.go:516
+func (*GoParser) isGoProject(localPath string) bool  // internal\parser\go_parser.go:204
+func (*GoParser) nodeToString(node ast.Node) string  // internal\parser\go_parser.go:591
+func (*GoParser) parseGoFile(filePath string, basePath string) ([]GoConstruct, string, error)  // internal\parser\go_parser.go:255
+func (*GoParser) typeToString(expr ast.Expr) string  // internal\parser\go_parser.go:524
+
+</file>
+
+<file path="internal\repository\mock.go" package="repository">
+// Package: repository
+// File: internal\repository\mock.go
+
+var mock_gitPlainClone = git.PlainClone  // internal\repository\mock.go:22
+var mock_gitPlainOpen = git.PlainOpen  // internal\repository\mock.go:21
+var mock_osIsNotExist = os.IsNotExist  // internal\repository\mock.go:17
+var mock_osMkdirAll = os.MkdirAll  // internal\repository\mock.go:15
+var mock_osReadFile = os.ReadFile  // internal\repository\mock.go:18
+var mock_osRemoveAll = os.RemoveAll  // internal\repository\mock.go:19
+var mock_osStat = os.Stat  // internal\repository\mock.go:16
+var mock_osUserHomeDir = os.UserHomeDir  // internal\repository\mock.go:14
+var mock_timeNow = time.Now  // internal\repository\mock.go:20
+
+</file>
+
+<file path="internal\repository\repository.go" package="repository">
+// Package: repository
+// File: internal\repository\repository.go
+
+var files []string  // internal\repository\repository.go:455
+
+type Manager struct {
+    workDir string
+}  // internal\repository\repository.go:27
+
+func NewManager(workDir string) (*Manager, error)  // internal\repository\repository.go:45
+
+func (*Manager) CleanupRepository(alias string) error  // internal\repository\repository.go:578
+func (*Manager) ExpandGlobRepositories(baseAlias string, config *types.RepositoryConfig) (map[string]*types.RepositoryConfig, error)  // internal\repository\repository.go:108
+func (*Manager) GetFileContent(localPath string, relPath string) (string, error)  // internal\repository\repository.go:551
+func (*Manager) GetRepositoryInfo(repositoryID string, localPath string) (*types.RepositoryIndex, error)  // internal\repository\repository.go:375
+func (*Manager) ListFiles(localPath string, indexingConfig types.IndexingConfig) ([]string, error)  // internal\repository\repository.go:450
+func (*Manager) PrepareRepository(alias string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:79
+func (*Manager) cloneRepository(localPath string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:240
+func (*Manager) createAuth(authConfig types.RepositoryAuth) (transport.AuthMethod, error)  // internal\repository\repository.go:310
+func (*Manager) prepareLocalRepository(config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:185
+func (*Manager) prepareRemoteRepository(alias string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:221
+func (*Manager) shouldIndexFile(relPath string, info os.FileInfo, config types.IndexingConfig) bool  // internal\repository\repository.go:498
+func (*Manager) updateRepository(localPath string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:271
+
+</file>
+
+<file path="internal\search\mock.go" package="search">
+// Package: search
+// File: internal\search\mock.go
+
+var mock_filepathMatch = filepath.Match  // internal\search\mock.go:11
+
+</file>
+
+<file path="internal\search\search.go" package="search">
+// Package: search
+// File: internal\search\search.go
+
+var allResults []types.SearchResult  // internal\search\search.go:57
+var bestMatch types.SearchResult  // internal\search\search.go:142
+var highlightedLine string  // internal\search\search.go:147
+var matched bool  // internal\search\search.go:146
+var regexPattern *regexp.Regexp  // internal\search\search.go:130
+var results []types.SearchResult  // internal\search\search.go:95
+var sortedSuggestions []suggestion  // internal\search\search.go:440
+var topicResults []types.SearchResult  // internal\search\search.go:362
+
+type Engine struct  // internal\search\search.go:20
+type suggestion struct {
+    word string
+    count int
+}  // internal\search\search.go:435
+
+func NewEngine() *Engine  // internal\search\search.go:34
+
+func (*Engine) GetSuggestions(prefix string, repositories map[string]*types.RepositoryIndex) ([]string, error)  // internal\search\search.go:401
+func (*Engine) Search(query types.SearchQuery, repositories map[string]*types.RepositoryIndex) ([]types.SearchResult, error)  // internal\search\search.go:52
+func (*Engine) SearchByTopic(topic string, repositories map[string]*types.RepositoryIndex) ([]types.SearchResult, error)  // internal\search\search.go:344
+func (*Engine) calculateScore(query types.SearchQuery, file types.IndexedFile, line string, lineNum int) float64  // internal\search\search.go:204
+func (*Engine) createSnippet(lines []string, matchLine int, contextLines int) string  // internal\search\search.go:308
+func (*Engine) highlightMatches(line string, query string) string  // internal\search\search.go:257
+func (*Engine) searchFile(query types.SearchQuery, file types.IndexedFile) []types.SearchResult  // internal\search\search.go:123
+func (*Engine) searchRepository(query types.SearchQuery, repo *types.RepositoryIndex) ([]types.SearchResult, error)  // internal\search\search.go:94
+
+</file>
+
+<file path="pkg\types\errors.go" package="types">
+// Package: types
+// File: pkg\types\errors.go
+
+var ErrAuthenticationFailed = fmt.Errorf("0x%X%X authentication_failed", "REPOMIX", []byte{0x05})  // pkg\types\errors.go:10
+var ErrCacheCorrupted = fmt.Errorf("0x%X%X cache_corrupted", "REPOMIX", []byte{0x07})  // pkg\types\errors.go:12
+var ErrCacheInitFailed = fmt.Errorf("0x%X%X cache_init_failed", "REPOMIX", []byte{0x06})  // pkg\types\errors.go:11
+var ErrConcurrentAccess = fmt.Errorf("0x%X%X concurrent_access", "REPOMIX", []byte{0x17})  // pkg\types\errors.go:28
+var ErrConfigNotFound = fmt.Errorf("0x%X%X config_not_found", "REPOMIX", []byte{0x01})  // pkg\types\errors.go:6
+var ErrFileNotFound = fmt.Errorf("0x%X%X file_not_found", "REPOMIX", []byte{0x11})  // pkg\types\errors.go:22
+var ErrGitCloneFailed = fmt.Errorf("0x%X%X git_clone_failed", "REPOMIX", []byte{0x0B})  // pkg\types\errors.go:16
+var ErrGitPullFailed = fmt.Errorf("0x%X%X git_pull_failed", "REPOMIX", []byte{0x0C})  // pkg\types\errors.go:17
+var ErrIndexingFailed = fmt.Errorf("0x%X%X indexing_failed", "REPOMIX", []byte{0x08})  // pkg\types\errors.go:13
+var ErrInvalidConfig = fmt.Errorf("0x%X%X invalid_config", "REPOMIX", []byte{0x02})  // pkg\types\errors.go:7
+var ErrInvalidPath = fmt.Errorf("0x%X%X invalid_path", "REPOMIX", []byte{0x13})  // pkg\types\errors.go:24
+var ErrInvalidRepositoryType = fmt.Errorf("0x%X%X invalid_repository_type", "REPOMIX", []byte{0x04})  // pkg\types\errors.go:9
+var ErrInvalidSearchQuery = fmt.Errorf("0x%X%X invalid_search_query", "REPOMIX", []byte{0x0D})  // pkg\types\errors.go:18
+var ErrMCPRequestInvalid = fmt.Errorf("0x%X%X mcp_request_invalid", "REPOMIX", []byte{0x0F})  // pkg\types\errors.go:20
+var ErrMCPToolNotFound = fmt.Errorf("0x%X%X mcp_tool_not_found", "REPOMIX", []byte{0x10})  // pkg\types\errors.go:21
+var ErrNetworkError = fmt.Errorf("0x%X%X network_error", "REPOMIX", []byte{0x14})  // pkg\types\errors.go:25
+var ErrNotInitialized = fmt.Errorf("0x%X%X not_initialized", "REPOMIX", []byte{0x16})  // pkg\types\errors.go:27
+var ErrPermissionDenied = fmt.Errorf("0x%X%X permission_denied", "REPOMIX", []byte{0x12})  // pkg\types\errors.go:23
+var ErrRepomixExecFailed = fmt.Errorf("0x%X%X repomix_exec_failed", "REPOMIX", []byte{0x0A})  // pkg\types\errors.go:15
+var ErrRepomixNotFound = fmt.Errorf("0x%X%X repomix_not_found", "REPOMIX", []byte{0x09})  // pkg\types\errors.go:14
+var ErrRepositoryNotFound = fmt.Errorf("0x%X%X repository_not_found", "REPOMIX", []byte{0x03})  // pkg\types\errors.go:8
+var ErrSearchFailed = fmt.Errorf("0x%X%X search_failed", "REPOMIX", []byte{0x0E})  // pkg\types\errors.go:19
+var ErrTimeoutError = fmt.Errorf("0x%X%X timeout_error", "REPOMIX", []byte{0x15})  // pkg\types\errors.go:26
+
+</file>
+
+<file path="pkg\types\types.go" package="types">
+// Package: types
+// File: pkg\types\types.go
+
+const AuthTypeNone = "none"  // pkg\types\types.go:29
+const AuthTypeSSH = "ssh"  // pkg\types\types.go:32
+const AuthTypeToken = "token"  // pkg\types\types.go:35
+const RepositoryTypeLocal = "local"  // pkg\types\types.go:17
+const RepositoryTypeRemote = "remote"  // pkg\types\types.go:20
+
+type AuthType = string  // pkg\types\types.go:25
+type RepositoryType = string  // pkg\types\types.go:13
+
+type CacheConfig struct {
+    Path string `json:"path" mapstructure:"path"`
+    MaxSize string `json:"maxSize" mapstructure:"maxSize"`
+    TTL string `json:"ttl" mapstructure:"ttl"`
+}  // pkg\types\types.go:73
+type Config struct {
+    Repositories map[string]RepositoryConfig `json:"repositories" mapstructure:"repositories"`
+    Cache CacheConfig `json:"cache" mapstructure:"cache"`
+    Server ServerConfig `json:"server" mapstructure:"server"`
+}  // pkg\types\types.go:98
+type IndexedFile struct {
+    Path string `json:"path"`
+    Content string `json:"content"`
+    Hash string `json:"hash"`
+    Size int64 `json:"size"`
+    ModTime time.Time `json:"modTime"`
+    Language string `json:"language"`
+    RepositoryID string `json:"repositoryId"`
+    Metadata map[string]string `json:"metadata"`
+}  // pkg\types\types.go:107
+type IndexingConfig struct {
+    Enabled bool `json:"enabled" mapstructure:"enabled"`
+    ExcludePatterns []string `json:"excludePatterns" mapstructure:"excludePatterns"`
+    IncludePatterns []string `json:"includePatterns" mapstructure:"includePatterns"`
+    MaxFileSize string `json:"maxFileSize" mapstructure:"maxFileSize"`
+}  // pkg\types\types.go:51
+type JSONRPCError struct {
+    Code int `json:"code"`
+    Message string `json:"message"`
+    Data interface{} `json:"data,omitempty"`
+}  // pkg\types\types.go:176
+type JSONRPCNotification struct {
+    JsonRPC string `json:"jsonrpc"`
+    Method string `json:"method"`
+    Params interface{} `json:"params,omitempty"`
+}  // pkg\types\types.go:184
+type JSONRPCRequest struct {
+    JsonRPC string `json:"jsonrpc"`
+    ID interface{} `json:"id,omitempty"`
+    Method string `json:"method"`
+    Params interface{} `json:"params,omitempty"`
+}  // pkg\types\types.go:158
+type JSONRPCResponse struct {
+    JsonRPC string `json:"jsonrpc"`
+    ID interface{} `json:"id"`
+    Result interface{} `json:"result,omitempty"`
+    Error *JSONRPCError `json:"error,omitempty"`
+}  // pkg\types\types.go:167
+type MCPContent struct {
+    Type string `json:"type"`
+    Text string `json:"text"`
+}  // pkg\types\types.go:236
+type MCPInitializeRequest struct {
+    ProtocolVersion string `json:"protocolVersion"`
+    Capabilities map[string]interface{} `json:"capabilities"`
+    ClientInfo map[string]interface{} `json:"clientInfo"`
+}  // pkg\types\types.go:192
+type MCPInitializeResult struct {
+    ProtocolVersion string `json:"protocolVersion"`
+    Capabilities map[string]interface{} `json:"capabilities"`
+    ServerInfo map[string]interface{} `json:"serverInfo"`
+}  // pkg\types\types.go:200
+type MCPRequest struct {
+    Tool string `json:"tool"`
+    Parameters map[string]interface{} `json:"parameters"`
+    RequestID string `json:"requestId"`
+}  // pkg\types\types.go:244
+type MCPResponse struct {
+    Success bool `json:"success"`
+    Data interface{} `json:"data"`
+    Error string `json:"error"`
+    RequestID string `json:"requestId"`
+    Metadata map[string]interface{} `json:"metadata"`
+}  // pkg\types\types.go:252
+type MCPTool struct {
+    Name string `json:"name"`
+    Description string `json:"description"`
+    InputSchema map[string]interface{} `json:"inputSchema"`
+}  // pkg\types\types.go:214
+type MCPToolCallParams struct {
+    Name string `json:"name"`
+    Arguments map[string]interface{} `json:"arguments"`
+}  // pkg\types\types.go:222
+type MCPToolCallResult struct {
+    Content []MCPContent `json:"content"`
+    IsError bool `json:"isError"`
+}  // pkg\types\types.go:229
+type MCPToolsListResult struct {
+    Tools []MCPTool `json:"tools"`
+}  // pkg\types\types.go:208
+type RepositoryAuth struct {
+    Type AuthType `json:"type" mapstructure:"type"`
+    KeyPath string `json:"keyPath" mapstructure:"keyPath"`
+    Token string `json:"token" mapstructure:"token"`
+    Username string `json:"username" mapstructure:"username"`
+}  // pkg\types\types.go:41
+type RepositoryConfig struct {
+    Type RepositoryType `json:"type" mapstructure:"type"`
+    Path string `json:"path" mapstructure:"path"`
+    URL string `json:"url" mapstructure:"url"`
+    Auth RepositoryAuth `json:"auth" mapstructure:"auth"`
+    Indexing IndexingConfig `json:"indexing" mapstructure:"indexing"`
+    Branch string `json:"branch" mapstructure:"branch"`
+}  // pkg\types\types.go:61
+type RepositoryIndex struct {
+    ID string `json:"id"`
+    Name string `json:"name"`
+    Path string `json:"path"`
+    LastUpdated time.Time `json:"lastUpdated"`
+    Files map[string]IndexedFile `json:"files"`
+    Metadata map[string]interface{} `json:"metadata"`
+    CommitHash string `json:"commitHash"`
+}  // pkg\types\types.go:121
+type SearchQuery struct {
+    Query string `json:"query"`
+    RepositoryID string `json:"repositoryId"`
+    FilePattern string `json:"filePattern"`
+    Language string `json:"language"`
+    MaxResults int `json:"maxResults"`
+    Topic string `json:"topic"`
+    Tokens int `json:"tokens"`
+}  // pkg\types\types.go:146
+type SearchResult struct {
+    File IndexedFile `json:"file"`
+    Score float64 `json:"score"`
+    Snippet string `json:"snippet"`
+    LineNumber int `json:"lineNumber"`
+    MatchCount int `json:"matchCount"`
+    Highlighted string `json:"highlighted"`
+}  // pkg\types\types.go:134
+type ServerConfig struct {
+    Port int `json:"port" mapstructure:"port"`
+    LogLevel string `json:"logLevel" mapstructure:"logLevel"`
+    Host string `json:"host" mapstructure:"host"`
+    HTTPSEnabled bool `json:"httpsEnabled" mapstructure:"httpsEnabled"`
+    HTTPSPort int `json:"httpsPort" mapstructure:"httpsPort"`
+    CertPath string `json:"certPath" mapstructure:"certPath"`
+    KeyPath string `json:"keyPath" mapstructure:"keyPath"`
+    AutoGenCert bool `json:"autoGenCert" mapstructure:"autoGenCert"`
+}  // pkg\types\types.go:82
+
+</file>
+
+<package name="cache">
+// Package: cache (exported constructs only)
+
+type Cache struct {
+    db *badger.DB
+    config *types.CacheConfig
+}  // internal\cache\cache.go:22
+
+func NewCache(config *types.CacheConfig) (*Cache, error)  // internal\cache\cache.go:42
+func NewCacheFromPath(cachePath string) (*Cache, error)  // internal\cache\cache.go:496
+
+func (*Cache) Close() error  // internal\cache\cache.go:80
+func (*Cache) DeleteRepository(repositoryID string) error  // internal\cache\cache.go:335
+func (*Cache) FormatValuePreview(value []byte) string  // internal\cache\cache.go:792
+func (*Cache) GetAllKeysWithValues(prefix string) (map[string][]byte, error)  // internal\cache\cache.go:655
+func (*Cache) GetCacheStats() (map[string]interface{}, error)  // internal\cache\cache.go:386
+func (*Cache) GetFile(repositoryID string, filePath string) (*types.IndexedFile, error)  // internal\cache\cache.go:242
+func (*Cache) GetKeyInfo(key string) (map[string]interface{}, error)  // internal\cache\cache.go:720
+func (*Cache) GetRawValue(key string) ([]byte, error)  // internal\cache\cache.go:610
+func (*Cache) GetRepository(repositoryID string) (*types.RepositoryIndex, error)  // internal\cache\cache.go:149
+func (*Cache) InvalidateAll() error  // internal\cache\cache.go:459
+func (*Cache) InvalidateRepository(repositoryID string) error  // internal\cache\cache.go:476
+func (*Cache) ListAllKeys(prefix string) ([]string, error)  // internal\cache\cache.go:559
+func (*Cache) ListRepositories() ([]string, error)  // internal\cache\cache.go:292
+func (*Cache) RunGarbageCollection() error  // internal\cache\cache.go:442
+func (*Cache) StoreFile(repositoryID string, file *types.IndexedFile) error  // internal\cache\cache.go:198
+func (*Cache) StoreRepository(repo *types.RepositoryIndex) error  // internal\cache\cache.go:105
+
+</package>
+
+<package name="config">
+// Package: config (exported constructs only)
+
+type Manager struct {
+    config *types.Config
+    configPath string
+}  // internal\config\config.go:20
+
+func NewManager() *Manager  // internal\config\config.go:37
+
+func (*Manager) CreateExampleConfig(configPath string) error  // internal\config\config.go:435
+func (*Manager) GetConfig() *types.Config  // internal\config\config.go:324
+func (*Manager) GetRepository(alias string) (*types.RepositoryConfig, error)  // internal\config\config.go:341
+func (*Manager) GetRepositoryAliases() []string  // internal\config\config.go:367
+func (*Manager) LoadConfig(configPath string) error  // internal\config\config.go:54
+func (*Manager) LoadConfigFromJSON(jsonData []byte) error  // internal\config\config.go:108
+func (*Manager) SaveConfig(configPath string) error  // internal\config\config.go:392
+
+</package>
+
+<package name="indexer">
+// Package: indexer (exported constructs only)
+
+const StrategyGoNative   // internal\indexer\indexer.go:26
+const StrategyRepomix = iota  // internal\indexer\indexer.go:23
+
+type IndexingStrategy = int  // internal\indexer\indexer.go:19
+
+type FileContent struct {
+    Path string
+    Content string
+}  // internal\indexer\indexer.go:305
+type Indexer struct {
+    repomixPath string
+    tempDir string
+    goParser *parser.GoParser
+}  // internal\indexer\indexer.go:45
+
+func NewIndexer() (*Indexer, error)  // internal\indexer\indexer.go:65
+
+func (*Indexer) Close() error  // internal\indexer\indexer.go:95
+func (*Indexer) DetermineIndexingStrategy(localPath string) IndexingStrategy  // internal\indexer\indexer.go:114
+func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:453
+func (*Indexer) IndexRepository(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:155
+func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:499
+func (IndexingStrategy) String() string  // internal\indexer\indexer.go:30
+func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:476
+
+</package>
+
+<package name="main">
+// Package: main (exported constructs only)
+
+type Application struct {
+    configManager *config.Manager
+    cache *cache.Cache
+    repoManager *repository.Manager
+    indexer *indexer.Indexer
+    searchEngine SearchInterface
+    mcpServer *mcp.Server
+}  // cmd\repomix-mcp\main.go:29
+type MockSearchEngine struct  // cmd\repomix-mcp\main.go:46
+
+type SearchInterface interface {
+    Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
+}  // cmd\repomix-mcp\main.go:40
+
+func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:60
+
+func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:271
+func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:120
+func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:164
+func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:69
+func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:49
+func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:254
+
+</package>
+
+<package name="mcp">
+// Package: mcp (exported constructs only)
+
+type Server struct {
+    config *types.Config
+    cache CacheInterface
+    searchEngine SearchInterface
+    repositories map[string]*types.RepositoryIndex
+    verbose bool
+    httpServer *http.Server
+    httpsServer *http.Server
+    wg sync.WaitGroup
+}  // internal\mcp\server.go:24
+
+type CacheInterface interface {
+    GetRepositoryfunc(string) (*types.RepositoryIndex, error)
+    StoreRepositoryfunc(*types.RepositoryIndex) error
+    ListRepositoriesfunc() ([]string, error)
+    InvalidateAllfunc() error
+    InvalidateRepositoryfunc(string) error
+}  // internal\mcp\server.go:39
+type SearchInterface interface {
+    Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
+}  // internal\mcp\server.go:49
+
+func GenerateSelfSignedCert(certPath string, keyPath string, hosts []string) error  // internal\mcp\tls.go:31
+func LoadTLSConfig(certPath string, keyPath string, autoGenCert bool, hosts []string) (*tls.Config, error)  // internal\mcp\tls.go:122
+func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:66
+
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:781
+func (*Server) Start() error  // internal\mcp\server.go:92
+func (*Server) Stop() error  // internal\mcp\server.go:965
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:953
+
+</package>
+
+<package name="parser">
+// Package: parser (exported constructs only)
+
+type GoConstruct struct {
+    Type string `json:"type"`
+    Name string `json:"name"`
+    Signature string `json:"signature"`
+    Package string `json:"package"`
+    File string `json:"file"`
+    Line int `json:"line"`
+    Exported bool `json:"exported"`
+    Receiver string `json:"receiver"`
+    Parameters []string `json:"parameters"`
+    Returns []string `json:"returns"`
+    Fields []string `json:"fields"`
+    Methods []string `json:"methods"`
+    Metadata map[string]string `json:"metadata"`
+}  // internal\parser\go_parser.go:29
+type GoFileAnalysis struct {
+    FilePath string `json:"filePath"`
+    PackageName string `json:"packageName"`
+    Constructs []GoConstruct `json:"constructs"`
+}  // internal\parser\go_parser.go:47
+type GoPackageAnalysis struct {
+    PackageName string `json:"packageName"`
+    Path string `json:"path"`
+    Files []string `json:"files"`
+    Constructs map[string][]GoConstruct `json:"constructs"`
+    ExportedOnly map[string][]GoConstruct `json:"exportedOnly"`
+    Summary map[string]int `json:"summary"`
+}  // internal\parser\go_parser.go:55
+type GoParser struct {
+    fileSet *token.FileSet
+}  // internal\parser\go_parser.go:23
+
+func NewGoParser() *GoParser  // internal\parser\go_parser.go:66
+
+func (*GoParser) ParseRepository(repositoryID string, localPath string) (*types.RepositoryIndex, error)  // internal\parser\go_parser.go:75
+
+</package>
+
+<package name="repository">
+// Package: repository (exported constructs only)
+
+type Manager struct {
+    workDir string
+}  // internal\repository\repository.go:27
+
+func NewManager(workDir string) (*Manager, error)  // internal\repository\repository.go:45
+
+func (*Manager) CleanupRepository(alias string) error  // internal\repository\repository.go:578
+func (*Manager) ExpandGlobRepositories(baseAlias string, config *types.RepositoryConfig) (map[string]*types.RepositoryConfig, error)  // internal\repository\repository.go:108
+func (*Manager) GetFileContent(localPath string, relPath string) (string, error)  // internal\repository\repository.go:551
+func (*Manager) GetRepositoryInfo(repositoryID string, localPath string) (*types.RepositoryIndex, error)  // internal\repository\repository.go:375
+func (*Manager) ListFiles(localPath string, indexingConfig types.IndexingConfig) ([]string, error)  // internal\repository\repository.go:450
+func (*Manager) PrepareRepository(alias string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:79
+
+</package>
+
+<package name="search">
+// Package: search (exported constructs only)
+
+type Engine struct  // internal\search\search.go:20
+
+func NewEngine() *Engine  // internal\search\search.go:34
+
+func (*Engine) GetSuggestions(prefix string, repositories map[string]*types.RepositoryIndex) ([]string, error)  // internal\search\search.go:401
+func (*Engine) Search(query types.SearchQuery, repositories map[string]*types.RepositoryIndex) ([]types.SearchResult, error)  // internal\search\search.go:52
+func (*Engine) SearchByTopic(topic string, repositories map[string]*types.RepositoryIndex) ([]types.SearchResult, error)  // internal\search\search.go:344
+
+</package>
+
+<package name="types">
+// Package: types (exported constructs only)
+
+const AuthTypeNone = "none"  // pkg\types\types.go:29
+const AuthTypeSSH = "ssh"  // pkg\types\types.go:32
+const AuthTypeToken = "token"  // pkg\types\types.go:35
+const RepositoryTypeLocal = "local"  // pkg\types\types.go:17
+const RepositoryTypeRemote = "remote"  // pkg\types\types.go:20
+
+var ErrAuthenticationFailed = fmt.Errorf("0x%X%X authentication_failed", "REPOMIX", []byte{0x05})  // pkg\types\errors.go:10
+var ErrCacheCorrupted = fmt.Errorf("0x%X%X cache_corrupted", "REPOMIX", []byte{0x07})  // pkg\types\errors.go:12
+var ErrCacheInitFailed = fmt.Errorf("0x%X%X cache_init_failed", "REPOMIX", []byte{0x06})  // pkg\types\errors.go:11
+var ErrConcurrentAccess = fmt.Errorf("0x%X%X concurrent_access", "REPOMIX", []byte{0x17})  // pkg\types\errors.go:28
+var ErrConfigNotFound = fmt.Errorf("0x%X%X config_not_found", "REPOMIX", []byte{0x01})  // pkg\types\errors.go:6
+var ErrFileNotFound = fmt.Errorf("0x%X%X file_not_found", "REPOMIX", []byte{0x11})  // pkg\types\errors.go:22
+var ErrGitCloneFailed = fmt.Errorf("0x%X%X git_clone_failed", "REPOMIX", []byte{0x0B})  // pkg\types\errors.go:16
+var ErrGitPullFailed = fmt.Errorf("0x%X%X git_pull_failed", "REPOMIX", []byte{0x0C})  // pkg\types\errors.go:17
+var ErrIndexingFailed = fmt.Errorf("0x%X%X indexing_failed", "REPOMIX", []byte{0x08})  // pkg\types\errors.go:13
+var ErrInvalidConfig = fmt.Errorf("0x%X%X invalid_config", "REPOMIX", []byte{0x02})  // pkg\types\errors.go:7
+var ErrInvalidPath = fmt.Errorf("0x%X%X invalid_path", "REPOMIX", []byte{0x13})  // pkg\types\errors.go:24
+var ErrInvalidRepositoryType = fmt.Errorf("0x%X%X invalid_repository_type", "REPOMIX", []byte{0x04})  // pkg\types\errors.go:9
+var ErrInvalidSearchQuery = fmt.Errorf("0x%X%X invalid_search_query", "REPOMIX", []byte{0x0D})  // pkg\types\errors.go:18
+var ErrMCPRequestInvalid = fmt.Errorf("0x%X%X mcp_request_invalid", "REPOMIX", []byte{0x0F})  // pkg\types\errors.go:20
+var ErrMCPToolNotFound = fmt.Errorf("0x%X%X mcp_tool_not_found", "REPOMIX", []byte{0x10})  // pkg\types\errors.go:21
+var ErrNetworkError = fmt.Errorf("0x%X%X network_error", "REPOMIX", []byte{0x14})  // pkg\types\errors.go:25
+var ErrNotInitialized = fmt.Errorf("0x%X%X not_initialized", "REPOMIX", []byte{0x16})  // pkg\types\errors.go:27
+var ErrPermissionDenied = fmt.Errorf("0x%X%X permission_denied", "REPOMIX", []byte{0x12})  // pkg\types\errors.go:23
+var ErrRepomixExecFailed = fmt.Errorf("0x%X%X repomix_exec_failed", "REPOMIX", []byte{0x0A})  // pkg\types\errors.go:15
+var ErrRepomixNotFound = fmt.Errorf("0x%X%X repomix_not_found", "REPOMIX", []byte{0x09})  // pkg\types\errors.go:14
+var ErrRepositoryNotFound = fmt.Errorf("0x%X%X repository_not_found", "REPOMIX", []byte{0x03})  // pkg\types\errors.go:8
+var ErrSearchFailed = fmt.Errorf("0x%X%X search_failed", "REPOMIX", []byte{0x0E})  // pkg\types\errors.go:19
+var ErrTimeoutError = fmt.Errorf("0x%X%X timeout_error", "REPOMIX", []byte{0x15})  // pkg\types\errors.go:26
+
+type AuthType = string  // pkg\types\types.go:25
+type RepositoryType = string  // pkg\types\types.go:13
+
+type CacheConfig struct {
+    Path string `json:"path" mapstructure:"path"`
+    MaxSize string `json:"maxSize" mapstructure:"maxSize"`
+    TTL string `json:"ttl" mapstructure:"ttl"`
+}  // pkg\types\types.go:73
+type Config struct {
+    Repositories map[string]RepositoryConfig `json:"repositories" mapstructure:"repositories"`
+    Cache CacheConfig `json:"cache" mapstructure:"cache"`
+    Server ServerConfig `json:"server" mapstructure:"server"`
+}  // pkg\types\types.go:98
+type IndexedFile struct {
+    Path string `json:"path"`
+    Content string `json:"content"`
+    Hash string `json:"hash"`
+    Size int64 `json:"size"`
+    ModTime time.Time `json:"modTime"`
+    Language string `json:"language"`
+    RepositoryID string `json:"repositoryId"`
+    Metadata map[string]string `json:"metadata"`
+}  // pkg\types\types.go:107
+type IndexingConfig struct {
+    Enabled bool `json:"enabled" mapstructure:"enabled"`
+    ExcludePatterns []string `json:"excludePatterns" mapstructure:"excludePatterns"`
+    IncludePatterns []string `json:"includePatterns" mapstructure:"includePatterns"`
+    MaxFileSize string `json:"maxFileSize" mapstructure:"maxFileSize"`
+}  // pkg\types\types.go:51
+type JSONRPCError struct {
+    Code int `json:"code"`
+    Message string `json:"message"`
+    Data interface{} `json:"data,omitempty"`
+}  // pkg\types\types.go:176
+type JSONRPCNotification struct {
+    JsonRPC string `json:"jsonrpc"`
+    Method string `json:"method"`
+    Params interface{} `json:"params,omitempty"`
+}  // pkg\types\types.go:184
+type JSONRPCRequest struct {
+    JsonRPC string `json:"jsonrpc"`
+    ID interface{} `json:"id,omitempty"`
+    Method string `json:"method"`
+    Params interface{} `json:"params,omitempty"`
+}  // pkg\types\types.go:158
+type JSONRPCResponse struct {
+    JsonRPC string `json:"jsonrpc"`
+    ID interface{} `json:"id"`
+    Result interface{} `json:"result,omitempty"`
+    Error *JSONRPCError `json:"error,omitempty"`
+}  // pkg\types\types.go:167
+type MCPContent struct {
+    Type string `json:"type"`
+    Text string `json:"text"`
+}  // pkg\types\types.go:236
+type MCPInitializeRequest struct {
+    ProtocolVersion string `json:"protocolVersion"`
+    Capabilities map[string]interface{} `json:"capabilities"`
+    ClientInfo map[string]interface{} `json:"clientInfo"`
+}  // pkg\types\types.go:192
+type MCPInitializeResult struct {
+    ProtocolVersion string `json:"protocolVersion"`
+    Capabilities map[string]interface{} `json:"capabilities"`
+    ServerInfo map[string]interface{} `json:"serverInfo"`
+}  // pkg\types\types.go:200
+type MCPRequest struct {
+    Tool string `json:"tool"`
+    Parameters map[string]interface{} `json:"parameters"`
+    RequestID string `json:"requestId"`
+}  // pkg\types\types.go:244
+type MCPResponse struct {
+    Success bool `json:"success"`
+    Data interface{} `json:"data"`
+    Error string `json:"error"`
+    RequestID string `json:"requestId"`
+    Metadata map[string]interface{} `json:"metadata"`
+}  // pkg\types\types.go:252
+type MCPTool struct {
+    Name string `json:"name"`
+    Description string `json:"description"`
+    InputSchema map[string]interface{} `json:"inputSchema"`
+}  // pkg\types\types.go:214
+type MCPToolCallParams struct {
+    Name string `json:"name"`
+    Arguments map[string]interface{} `json:"arguments"`
+}  // pkg\types\types.go:222
+type MCPToolCallResult struct {
+    Content []MCPContent `json:"content"`
+    IsError bool `json:"isError"`
+}  // pkg\types\types.go:229
+type MCPToolsListResult struct {
+    Tools []MCPTool `json:"tools"`
+}  // pkg\types\types.go:208
+type RepositoryAuth struct {
+    Type AuthType `json:"type" mapstructure:"type"`
+    KeyPath string `json:"keyPath" mapstructure:"keyPath"`
+    Token string `json:"token" mapstructure:"token"`
+    Username string `json:"username" mapstructure:"username"`
+}  // pkg\types\types.go:41
+type RepositoryConfig struct {
+    Type RepositoryType `json:"type" mapstructure:"type"`
+    Path string `json:"path" mapstructure:"path"`
+    URL string `json:"url" mapstructure:"url"`
+    Auth RepositoryAuth `json:"auth" mapstructure:"auth"`
+    Indexing IndexingConfig `json:"indexing" mapstructure:"indexing"`
+    Branch string `json:"branch" mapstructure:"branch"`
+}  // pkg\types\types.go:61
+type RepositoryIndex struct {
+    ID string `json:"id"`
+    Name string `json:"name"`
+    Path string `json:"path"`
+    LastUpdated time.Time `json:"lastUpdated"`
+    Files map[string]IndexedFile `json:"files"`
+    Metadata map[string]interface{} `json:"metadata"`
+    CommitHash string `json:"commitHash"`
+}  // pkg\types\types.go:121
+type SearchQuery struct {
+    Query string `json:"query"`
+    RepositoryID string `json:"repositoryId"`
+    FilePattern string `json:"filePattern"`
+    Language string `json:"language"`
+    MaxResults int `json:"maxResults"`
+    Topic string `json:"topic"`
+    Tokens int `json:"tokens"`
+}  // pkg\types\types.go:146
+type SearchResult struct {
+    File IndexedFile `json:"file"`
+    Score float64 `json:"score"`
+    Snippet string `json:"snippet"`
+    LineNumber int `json:"lineNumber"`
+    MatchCount int `json:"matchCount"`
+    Highlighted string `json:"highlighted"`
+}  // pkg\types\types.go:134
+type ServerConfig struct {
+    Port int `json:"port" mapstructure:"port"`
+    LogLevel string `json:"logLevel" mapstructure:"logLevel"`
+    Host string `json:"host" mapstructure:"host"`
+    HTTPSEnabled bool `json:"httpsEnabled" mapstructure:"httpsEnabled"`
+    HTTPSPort int `json:"httpsPort" mapstructure:"httpsPort"`
+    CertPath string `json:"certPath" mapstructure:"certPath"`
+    KeyPath string `json:"keyPath" mapstructure:"keyPath"`
+    AutoGenCert bool `json:"autoGenCert" mapstructure:"autoGenCert"`
+}  // pkg\types\types.go:82
+
+</package>
+
+</files>
+</repository>

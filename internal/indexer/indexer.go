@@ -11,15 +11,41 @@ import (
 	"time"
 
 	"repomix-mcp/pkg/types"
+	"repomix-mcp/internal/parser"
 )
 
 // ************************************************************************************************
-// Indexer manages repomix CLI execution and content processing.
-// It provides functionality to run repomix on repositories and parse the output
-// into structured data for caching and search operations.
+// IndexingStrategy defines the strategy to use for indexing a repository.
+type IndexingStrategy int
+
+const (
+	// StrategyRepomix uses the standard repomix CLI tool for indexing.
+	StrategyRepomix IndexingStrategy = iota
+	
+	// StrategyGoNative uses Go AST parsing for Go projects.
+	StrategyGoNative
+)
+
+// String returns a string representation of the indexing strategy.
+func (s IndexingStrategy) String() string {
+	switch s {
+	case StrategyRepomix:
+		return "repomix"
+	case StrategyGoNative:
+		return "go_native"
+	default:
+		return "unknown"
+	}
+}
+
+// ************************************************************************************************
+// Indexer manages repository content indexing with multiple strategies.
+// It provides functionality to run repomix on repositories or use Go-specific
+// parsing for Go projects, then parse the output into structured data.
 type Indexer struct {
 	repomixPath string
 	tempDir     string
+	goParser    *parser.GoParser
 }
 
 // ************************************************************************************************
@@ -52,6 +78,7 @@ func NewIndexer() (*Indexer, error) {
 	return &Indexer{
 		repomixPath: repomixPath,
 		tempDir:     tempDir,
+		goParser:    parser.NewGoParser(),
 	}, nil
 }
 
@@ -75,8 +102,45 @@ func (i *Indexer) Close() error {
 }
 
 // ************************************************************************************************
-// IndexRepository runs repomix on a repository and returns the indexed content.
-// It executes the repomix CLI tool and processes the output into structured data.
+// DetermineIndexingStrategy determines the best indexing strategy for a repository.
+// It checks for Go projects and returns the appropriate strategy.
+//
+// Returns:
+//   - IndexingStrategy: The recommended indexing strategy.
+//
+// Example usage:
+//
+//	strategy := indexer.DetermineIndexingStrategy("/path/to/repo")
+func (i *Indexer) DetermineIndexingStrategy(localPath string) IndexingStrategy {
+	// Check if this is a Go project by looking for go.mod
+	goModPath := filepath.Join(localPath, "go.mod")
+	if _, err := mock_osStat(goModPath); err == nil {
+		return StrategyGoNative
+	}
+
+	// Fallback: check for significant number of Go files
+	goFileCount := 0
+	filepath.Walk(localPath, func(path string, info mock_osFileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			goFileCount++
+		}
+		return nil
+	})
+
+	// Use Go native strategy if we find 3+ Go files
+	if goFileCount >= 3 {
+		return StrategyGoNative
+	}
+
+	// Default to repomix strategy
+	return StrategyRepomix
+}
+
+// IndexRepository indexes a repository using the appropriate strategy.
+// It automatically detects whether to use repomix or Go-native parsing.
 //
 // Returns:
 //   - *types.RepositoryIndex: The indexed repository content.
@@ -97,6 +161,43 @@ func (i *Indexer) IndexRepository(repositoryID, localPath string, config types.I
 		return nil, fmt.Errorf("%w: indexing is disabled", types.ErrIndexingFailed)
 	}
 
+	// Determine indexing strategy
+	strategy := i.DetermineIndexingStrategy(localPath)
+
+	switch strategy {
+	case StrategyGoNative:
+		return i.indexRepositoryWithGo(repositoryID, localPath, config)
+	case StrategyRepomix:
+		return i.indexRepositoryWithRepomix(repositoryID, localPath, config)
+	default:
+		return nil, fmt.Errorf("unknown indexing strategy: %s", strategy.String())
+	}
+}
+
+// indexRepositoryWithGo indexes a Go repository using Go AST parsing.
+func (i *Indexer) indexRepositoryWithGo(repositoryID, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error) {
+	// Use Go parser for indexing
+	repoIndex, err := i.goParser.ParseRepository(repositoryID, localPath)
+	if err != nil {
+		// Fallback to repomix if Go parsing fails
+		fmt.Printf("Go parsing failed for %s, falling back to repomix: %v\n", repositoryID, err)
+		return i.indexRepositoryWithRepomix(repositoryID, localPath, config)
+	}
+
+	// Write .repomix.xml file to repository directory
+	xmlFilePath := filepath.Join(localPath, ".repomix.xml")
+	if xmlFile, exists := repoIndex.Files[".repomix.xml"]; exists {
+		if err := mock_osWriteFile(xmlFilePath, []byte(xmlFile.Content), 0644); err != nil {
+			// Log error but don't fail indexing
+			fmt.Printf("Warning: failed to write .repomix.xml to %s: %v\n", xmlFilePath, err)
+		}
+	}
+
+	return repoIndex, nil
+}
+
+// indexRepositoryWithRepomix indexes a repository using the repomix CLI tool.
+func (i *Indexer) indexRepositoryWithRepomix(repositoryID, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error) {
 	// Create output file path
 	outputFile := filepath.Join(i.tempDir, fmt.Sprintf("%s-output.xml", repositoryID))
 

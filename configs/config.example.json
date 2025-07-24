@@ -144,6 +144,11 @@
   "server": {
     "port": 8080,
     "host": "localhost",
-    "logLevel": "info"
+    "logLevel": "info",
+    "httpsEnabled": true,
+    "httpsPort": 9443,
+    "certPath": "~/.repomix-mcp/server.crt",
+    "keyPath": "~/.repomix-mcp/server.key",
+    "autoGenCert": true
   }
 }

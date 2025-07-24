@@ -5,12 +5,15 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"repomix-mcp/pkg/types"
 )
@@ -23,6 +26,12 @@ type Server struct {
 	cache        CacheInterface
 	searchEngine SearchInterface
 	repositories map[string]*types.RepositoryIndex
+	verbose      bool
+	
+	// Server management
+	httpServer  *http.Server
+	httpsServer *http.Server
+	wg          sync.WaitGroup
 }
 
 // ************************************************************************************************
@@ -31,6 +40,8 @@ type CacheInterface interface {
 	GetRepository(id string) (*types.RepositoryIndex, error)
 	StoreRepository(repo *types.RepositoryIndex) error
 	ListRepositories() ([]string, error)
+	InvalidateAll() error
+	InvalidateRepository(repositoryID string) error
 }
 
 // ************************************************************************************************
@@ -66,8 +77,8 @@ func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchIn
 }
 
 // ************************************************************************************************
-// Start starts the MCP server on the configured port.
-// It sets up HTTP handlers for the MCP JSON-RPC 2.0 endpoint.
+// Start starts the MCP server on the configured ports.
+// It sets up HTTP handlers for the MCP JSON-RPC 2.0 endpoint and optionally starts HTTPS server.
 //
 // Returns:
 //   - error: An error if server startup fails.
@@ -79,18 +90,71 @@ func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchIn
 //		return fmt.Errorf("failed to start server: %w", err)
 //	}
 func (s *Server) Start() error {
-	// Set up the main MCP endpoint for JSON-RPC 2.0
-	http.HandleFunc("/mcp", s.handleMCPEndpoint)
-	
-	// Add health check endpoint
-	http.HandleFunc("/health", s.handleHealth)
+	// Create HTTP mux for handlers
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mcp", s.handleMCPEndpoint)
+	mux.HandleFunc("/health", s.handleHealth)
 
-	// Start server
-	address := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
-	log.Printf("Starting MCP server on %s", address)
-	log.Printf("MCP endpoint available at: http://%s/mcp", address)
+	// Start HTTP server
+	httpAddress := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
+	s.httpServer = &http.Server{
+		Addr:    httpAddress,
+		Handler: mux,
+	}
 
-	return http.ListenAndServe(address, nil)
+	log.Printf("Starting HTTP MCP server on %s", httpAddress)
+	log.Printf("HTTP MCP endpoint available at: http://%s/mcp", httpAddress)
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Start HTTPS server if enabled
+	if s.config.Server.HTTPSEnabled {
+		httpsAddress := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.HTTPSPort)
+		
+		// Load or generate TLS configuration
+		hosts := []string{s.config.Server.Host}
+		if s.config.Server.Host != "localhost" {
+			hosts = append(hosts, "localhost", "127.0.0.1", "::1")
+		}
+		
+		tlsConfig, err := LoadTLSConfig(s.config.Server.CertPath, s.config.Server.KeyPath, s.config.Server.AutoGenCert, hosts)
+		if err != nil {
+			return fmt.Errorf("failed to configure TLS: %w", err)
+		}
+
+		s.httpsServer = &http.Server{
+			Addr:      httpsAddress,
+			Handler:   mux,
+			TLSConfig: tlsConfig,
+		}
+
+		log.Printf("Starting HTTPS MCP server on %s", httpsAddress)
+		log.Printf("HTTPS MCP endpoint available at: https://%s/mcp", httpsAddress)
+		
+		if s.config.Server.AutoGenCert {
+			log.Printf("Using auto-generated self-signed certificate")
+			log.Printf("Certificate: %s", s.config.Server.CertPath)
+			log.Printf("Private Key: %s", s.config.Server.KeyPath)
+		}
+
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			if err := s.httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Printf("HTTPS server error: %v", err)
+			}
+		}()
+	}
+
+	// Wait for servers to start
+	s.wg.Wait()
+	return nil
 }
 
 // ************************************************************************************************
@@ -222,6 +286,45 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 				"required": []string{"context7CompatibleLibraryID"},
 			},
 		},
+		{
+			Name:        "refresh",
+			Description: "Force refresh global cache for all or specific repositories",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"repositoryID": map[string]interface{}{
+						"type":        "string",
+						"description": "Target specific repository ID, empty for all repositories",
+					},
+					"force": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Skip confirmation prompts",
+						"default":     false,
+					},
+				},
+				"required": []string{},
+			},
+		},
+		{
+			Name:        "get-readme",
+			Description: "Extract and return README content if it exists",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"context7CompatibleLibraryID": map[string]interface{}{
+						"type":        "string",
+						"description": "Repository ID from resolve-library-id",
+					},
+					"format": map[string]interface{}{
+						"type":        "string",
+						"description": "Output format: 'text' or 'markdown'",
+						"default":     "markdown",
+						"enum":        []string{"text", "markdown"},
+					},
+				},
+				"required": []string{"context7CompatibleLibraryID"},
+			},
+		},
 	}
 
 	result := types.MCPToolsListResult{
@@ -251,6 +354,10 @@ func (s *Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest
 		s.handleResolveLibraryID(w, req.ID, params.Arguments)
 	case "get-library-docs":
 		s.handleGetLibraryDocs(w, req.ID, params.Arguments)
+	case "refresh":
+		s.handleRefresh(w, req.ID, params.Arguments)
+	case "get-readme":
+		s.handleGetReadme(w, req.ID, params.Arguments)
 	default:
 		s.sendJSONRPCError(w, req.ID, -32602, "Invalid params", fmt.Sprintf("Unknown tool: %s", params.Name))
 	}
@@ -294,6 +401,197 @@ func (s *Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, a
 		IsError: false,
 	}
 
+	s.sendJSONRPCResult(w, id, result)
+}
+
+// ************************************************************************************************
+// handleRefresh handles the refresh tool for cache invalidation.
+func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments map[string]interface{}) {
+	// Extract optional parameters
+	repositoryID, _ := arguments["repositoryID"].(string)
+	force, _ := arguments["force"].(bool)
+	
+	log.Printf("Handling refresh: repositoryID=%s, force=%v", repositoryID, force)
+	
+	var refreshedCount int
+	var errors []string
+	
+	if s.cache == nil {
+		s.sendToolError(w, id, "Cache not available")
+		return
+	}
+	
+	if repositoryID != "" {
+		// Refresh specific repository
+		err := s.cache.InvalidateRepository(repositoryID)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Failed to refresh %s: %v", repositoryID, err))
+		} else {
+			refreshedCount = 1
+			log.Printf("Refreshed repository cache: %s", repositoryID)
+		}
+	} else {
+		// Refresh all repositories
+		err := s.cache.InvalidateAll()
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Failed to refresh all repositories: %v", err))
+		} else {
+			// Count how many repositories were in cache
+			repos, err := s.cache.ListRepositories()
+			if err == nil {
+				refreshedCount = len(repos)
+			}
+			log.Printf("Refreshed all repository caches")
+		}
+	}
+	
+	// Build response message
+	var message strings.Builder
+	if refreshedCount > 0 {
+		if repositoryID != "" {
+			message.WriteString(fmt.Sprintf("Successfully refreshed repository: %s", repositoryID))
+		} else {
+			message.WriteString(fmt.Sprintf("Successfully refreshed %d repositories", refreshedCount))
+		}
+	}
+	
+	if len(errors) > 0 {
+		if message.Len() > 0 {
+			message.WriteString("\n\nErrors encountered:\n")
+		}
+		message.WriteString(strings.Join(errors, "\n"))
+	}
+	
+	if refreshedCount == 0 && len(errors) == 0 {
+		message.WriteString("No repositories found to refresh")
+	}
+	
+	result := types.MCPToolCallResult{
+		Content: []types.MCPContent{
+			{
+				Type: "text",
+				Text: message.String(),
+			},
+		},
+		IsError: len(errors) > 0 && refreshedCount == 0,
+	}
+	
+	s.sendJSONRPCResult(w, id, result)
+}
+
+// ************************************************************************************************
+// handleGetReadme handles the get-readme tool for README extraction.
+func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{}) {
+	// Extract library ID
+	libraryID, ok := arguments["context7CompatibleLibraryID"].(string)
+	if !ok || libraryID == "" {
+		s.sendToolError(w, id, "context7CompatibleLibraryID parameter is required and must be a string")
+		return
+	}
+	
+	// Extract optional format parameter
+	format, _ := arguments["format"].(string)
+	if format == "" {
+		format = "markdown"
+	}
+	
+	log.Printf("Getting README: id=%s, format=%s", libraryID, format)
+	
+	// Get repository from cache
+	var repo *types.RepositoryIndex
+	var err error
+	
+	if s.cache != nil {
+		repo, err = s.cache.GetRepository(libraryID)
+		if err != nil {
+			// Try in-memory repositories
+			if repoMem, exists := s.repositories[libraryID]; exists {
+				repo = repoMem
+			} else {
+				s.sendToolError(w, id, fmt.Sprintf("Repository not found: %s", libraryID))
+				return
+			}
+		}
+	} else {
+		// Try in-memory repositories
+		if repoMem, exists := s.repositories[libraryID]; exists {
+			repo = repoMem
+		} else {
+			s.sendToolError(w, id, fmt.Sprintf("Repository not found: %s", libraryID))
+			return
+		}
+	}
+	
+	// Look for README files
+	var readmeFile *types.IndexedFile
+	var readmePath string
+	
+	// Common README file patterns
+	readmePatterns := []string{
+		"README.md", "readme.md", "Readme.md",
+		"README.txt", "readme.txt", "Readme.txt",
+		"README.rst", "readme.rst", "Readme.rst",
+		"README", "readme", "Readme",
+	}
+	
+	for _, pattern := range readmePatterns {
+		if file, exists := repo.Files[pattern]; exists {
+			readmeFile = &file
+			readmePath = pattern
+			break
+		}
+		
+		// Also check with leading slash
+		slashPattern := "/" + pattern
+		if file, exists := repo.Files[slashPattern]; exists {
+			readmeFile = &file
+			readmePath = slashPattern
+			break
+		}
+	}
+	
+	if readmeFile == nil {
+		s.sendToolError(w, id, fmt.Sprintf("No README file found in repository: %s", libraryID))
+		return
+	}
+	
+	// Format the content based on requested format
+	content := readmeFile.Content
+	if format == "text" && strings.HasSuffix(strings.ToLower(readmePath), ".md") {
+		// Simple markdown to text conversion - remove basic markdown syntax
+		content = strings.ReplaceAll(content, "**", "")
+		content = strings.ReplaceAll(content, "*", "")
+		content = strings.ReplaceAll(content, "`", "")
+		// Remove markdown headers
+		lines := strings.Split(content, "\n")
+		for i, line := range lines {
+			if strings.HasPrefix(line, "#") {
+				lines[i] = strings.TrimLeft(line, "# ")
+			}
+		}
+		content = strings.Join(lines, "\n")
+	}
+	
+	// Build response
+	var response strings.Builder
+	response.WriteString(fmt.Sprintf("# README from %s\n\n", libraryID))
+	response.WriteString(fmt.Sprintf("**File:** %s\n", readmePath))
+	response.WriteString(fmt.Sprintf("**Size:** %d bytes\n", readmeFile.Size))
+	response.WriteString(fmt.Sprintf("**Language:** %s\n", readmeFile.Language))
+	response.WriteString(fmt.Sprintf("**Format:** %s\n\n", format))
+	response.WriteString("---\n\n")
+	response.WriteString(content)
+	
+	result := types.MCPToolCallResult{
+		Content: []types.MCPContent{
+			{
+				Type: "text",
+				Text: response.String(),
+			},
+		},
+		IsError: false,
+	}
+	
 	s.sendJSONRPCResult(w, id, result)
 }
 
@@ -479,18 +777,39 @@ func (s *Server) findRepositoryMatches(libraryName string) []string {
 }
 
 // ************************************************************************************************
+// SetVerbose sets the verbose logging mode for the server.
+func (s *Server) SetVerbose(verbose bool) {
+	s.verbose = verbose
+}
+
 // getRepositoryDocs retrieves documentation for a repository.
 func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string, error) {
 	// Try to get from cache first
 	if s.cache != nil {
 		repo, err := s.cache.GetRepository(libraryID)
 		if err == nil {
+			// Verbose logging for cache operations
+			if s.verbose {
+				// Mock the cache interface to get raw value for preview
+				if cacheImpl, ok := s.cache.(interface {
+					GetRawValue(string) ([]byte, error)
+					FormatValuePreview([]byte) string
+				}); ok {
+					if rawData, rawErr := cacheImpl.GetRawValue("repo:" + libraryID); rawErr == nil {
+						preview := cacheImpl.FormatValuePreview(rawData)
+						log.Printf("[CACHE] Retrieved key: repo:%s -> %s", libraryID, preview)
+					}
+				}
+			}
 			return s.extractDocumentation(repo, topic, tokens), nil
 		}
 	}
 
 	// Try in-memory repositories
 	if repo, exists := s.repositories[libraryID]; exists {
+		if s.verbose {
+			log.Printf("[MEMORY] Retrieved repository: %s", libraryID)
+		}
 		return s.extractDocumentation(repo, topic, tokens), nil
 	}
 
@@ -644,6 +963,21 @@ func (s *Server) UpdateRepository(repo *types.RepositoryIndex) error {
 // ************************************************************************************************
 // Stop gracefully stops the MCP server.
 func (s *Server) Stop() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+	}
+
+	if s.httpsServer != nil {
+		if err := s.httpsServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTPS server shutdown error: %v", err)
+		}
+	}
+
 	log.Printf("MCP server stopped")
 	return nil
 }

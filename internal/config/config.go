@@ -261,6 +261,50 @@ func (m *Manager) validateServer(server *types.ServerConfig) error {
 		return fmt.Errorf("%w: invalid log level: %s", types.ErrInvalidConfig, server.LogLevel)
 	}
 	
+	// Set HTTPS defaults
+	if server.HTTPSPort == 0 {
+		server.HTTPSPort = 9443
+	}
+	
+	// Validate HTTPS configuration
+	if server.HTTPSEnabled {
+		if server.HTTPSPort <= 0 || server.HTTPSPort > 65535 {
+			return fmt.Errorf("%w: invalid HTTPS port number: %d", types.ErrInvalidConfig, server.HTTPSPort)
+		}
+		
+		// If not auto-generating certificate, validate paths
+		if !server.AutoGenCert {
+			if server.CertPath == "" {
+				return fmt.Errorf("%w: certificate path required when HTTPS is enabled and autoGenCert is false", types.ErrInvalidConfig)
+			}
+			if server.KeyPath == "" {
+				return fmt.Errorf("%w: key path required when HTTPS is enabled and autoGenCert is false", types.ErrInvalidConfig)
+			}
+			
+			// Expand home directory in certificate paths
+			if strings.HasPrefix(server.CertPath, "~") {
+				homeDir, err := mock_osUserHomeDir()
+				if err != nil {
+					return fmt.Errorf("failed to get home directory for cert path\n>    %w", err)
+				}
+				server.CertPath = filepath.Join(homeDir, server.CertPath[1:])
+			}
+			
+			if strings.HasPrefix(server.KeyPath, "~") {
+				homeDir, err := mock_osUserHomeDir()
+				if err != nil {
+					return fmt.Errorf("failed to get home directory for key path\n>    %w", err)
+				}
+				server.KeyPath = filepath.Join(homeDir, server.KeyPath[1:])
+			}
+		}
+		
+		// Ensure HTTP and HTTPS ports are different
+		if server.Port == server.HTTPSPort {
+			return fmt.Errorf("%w: HTTP and HTTPS ports must be different", types.ErrInvalidConfig)
+		}
+	}
+	
 	return nil
 }
 
@@ -425,9 +469,14 @@ func (m *Manager) CreateExampleConfig(configPath string) error {
 			TTL:     "24h",
 		},
 		Server: types.ServerConfig{
-			Port:     8080,
-			Host:     "localhost",
-			LogLevel: "info",
+			Port:         8080,
+			Host:         "localhost",
+			LogLevel:     "info",
+			HTTPSEnabled: true,
+			HTTPSPort:    9443,
+			CertPath:     "~/.repomix-mcp/server.crt",
+			KeyPath:      "~/.repomix-mcp/server.key",
+			AutoGenCert:  true,
 		},
 	}
 	

@@ -5,11 +5,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"repomix-mcp/internal/cache"
@@ -221,6 +223,20 @@ func (app *Application) indexExpandedRepository(alias string, repoConfig *types.
 	if err = app.cache.StoreRepository(repoIndex); err != nil {
 		return fmt.Errorf("failed to store repository in cache\n>    %w", err)
 	}
+	
+	// Verbose logging for cache operations
+	if verbose {
+		data, _ := json.Marshal(repoIndex)
+		preview := app.cache.FormatValuePreview(data)
+		log.Printf("[CACHE] Stored key: repo:%s -> %s", repoIndex.ID, preview)
+		
+		// Log file-level storage if any files were indexed
+		for _, file := range repoIndex.Files {
+			fileData, _ := json.Marshal(file)
+			filePreview := app.cache.FormatValuePreview(fileData)
+			log.Printf("[CACHE] Stored key: file:%s:%s -> %s", repoIndex.ID, file.Path, filePreview)
+		}
+	}
 
 	// Update MCP server
 	if err = app.mcpServer.UpdateRepository(repoIndex); err != nil {
@@ -237,6 +253,13 @@ func (app *Application) indexExpandedRepository(alias string, repoConfig *types.
 //   - error: An error if server startup fails.
 func (app *Application) StartServer() error {
 	log.Println("Starting MCP server...")
+	
+	// Set verbose mode if enabled
+	if verbose {
+		app.mcpServer.SetVerbose(true)
+		log.Println("Verbose cache logging enabled for MCP server")
+	}
+	
 	return app.mcpServer.Start()
 }
 
@@ -260,6 +283,351 @@ func (app *Application) Cleanup() error {
 		}
 	}
 
+	return nil
+}
+
+// ************************************************************************************************
+// runListKeysCommand executes the listkeys command logic.
+func runListKeysCommand(cmd *cobra.Command, args []string) error {
+	var cacheInstance *cache.Cache
+	var err error
+
+	// Initialize cache instance based on flags
+	if dbPath != "" {
+		// Use direct cache path
+		cacheInstance, err = cache.NewCacheFromPath(dbPath)
+		if err != nil {
+			return fmt.Errorf("failed to open cache from path %s\n>    %w", dbPath, err)
+		}
+	} else {
+		// Use config file
+		if app == nil {
+			return fmt.Errorf("application not initialized")
+		}
+		cacheInstance = app.cache
+	}
+	defer func() {
+		if dbPath != "" && cacheInstance != nil {
+			cacheInstance.Close()
+		}
+	}()
+
+	// Determine key prefix based on filter
+	var prefix string
+	switch filter {
+	case "repo":
+		prefix = "repo:"
+	case "file":
+		prefix = "file:"
+	case "":
+		prefix = ""
+	default:
+		return fmt.Errorf("invalid filter: %s (valid options: repo, file)", filter)
+	}
+
+	// List keys
+	keys, err := cacheInstance.ListAllKeys(prefix)
+	if err != nil {
+		return fmt.Errorf("failed to list keys\n>    %w", err)
+	}
+
+	// Format and display output
+	return formatKeysOutput(cacheInstance, keys, format, verbose)
+}
+
+// ************************************************************************************************
+// runGetContentCommand executes the getcontent command logic.
+func runGetContentCommand(cmd *cobra.Command, args []string) error {
+	var cacheInstance *cache.Cache
+	var err error
+
+	// Initialize cache instance based on flags
+	if dbPath != "" {
+		// Use direct cache path
+		cacheInstance, err = cache.NewCacheFromPath(dbPath)
+		if err != nil {
+			return fmt.Errorf("failed to open cache from path %s\n>    %w", dbPath, err)
+		}
+	} else {
+		// Use config file
+		if app == nil {
+			return fmt.Errorf("application not initialized")
+		}
+		cacheInstance = app.cache
+	}
+	defer func() {
+		if dbPath != "" && cacheInstance != nil {
+			cacheInstance.Close()
+		}
+	}()
+
+	if len(args) > 0 {
+		// Get specific key content
+		key := args[0]
+		return getSpecificKeyContent(cacheInstance, key, format)
+	} else {
+		// Get all keys with content preview
+		return getAllKeysContent(cacheInstance, format, filter)
+	}
+}
+
+// ************************************************************************************************
+// formatKeysOutput formats and displays the keys output based on the specified format.
+func formatKeysOutput(cacheInstance *cache.Cache, keys []string, outputFormat string, verbose bool) error {
+	switch outputFormat {
+	case "table":
+		return formatKeysTable(cacheInstance, keys, verbose)
+	case "json":
+		return formatKeysJSON(cacheInstance, keys, verbose)
+	case "raw":
+		return formatKeysRaw(keys)
+	default:
+		return fmt.Errorf("invalid format: %s (valid options: table, json, raw)", outputFormat)
+	}
+}
+
+// ************************************************************************************************
+// formatKeysTable formats keys output as a human-readable table.
+func formatKeysTable(cacheInstance *cache.Cache, keys []string, verbose bool) error {
+	if len(keys) == 0 {
+		fmt.Println("No keys found in cache.")
+		return nil
+	}
+
+	if verbose {
+		fmt.Printf("%-50s %-10s %-15s %-20s %s\n", "KEY", "TYPE", "SIZE", "TTL", "PREVIEW")
+		fmt.Println(strings.Repeat("-", 120))
+		
+		for _, key := range keys {
+			info, err := cacheInstance.GetKeyInfo(key)
+			if err != nil {
+				fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, "ERROR", "-", "-", err.Error())
+				continue
+			}
+			
+			rawValue, err := cacheInstance.GetRawValue(key)
+			if err != nil {
+				fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, "ERROR", "-", "-", err.Error())
+				continue
+			}
+			
+			preview := cacheInstance.FormatValuePreview(rawValue)
+			keyType := info["type"].(string)
+			size := fmt.Sprintf("%d bytes", info["value_size"].(int))
+			
+			ttl := "-"
+			if info["ttl_seconds"] != nil {
+				ttl = fmt.Sprintf("%d sec", info["ttl_seconds"].(uint64))
+			}
+			
+			fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, keyType, size, ttl, preview)
+		}
+	} else {
+		fmt.Printf("%-50s %s\n", "KEY", "TYPE")
+		fmt.Println(strings.Repeat("-", 65))
+		
+		for _, key := range keys {
+			keyType := "unknown"
+			if strings.HasPrefix(key, "repo:") {
+				keyType = "repository"
+			} else if strings.HasPrefix(key, "file:") {
+				keyType = "file"
+			}
+			fmt.Printf("%-50s %s\n", key, keyType)
+		}
+	}
+	
+	fmt.Printf("\nTotal keys: %d\n", len(keys))
+	return nil
+}
+
+// ************************************************************************************************
+// formatKeysJSON formats keys output as JSON.
+func formatKeysJSON(cacheInstance *cache.Cache, keys []string, verbose bool) error {
+	if verbose {
+		var detailedKeys []map[string]interface{}
+		for _, key := range keys {
+			info, err := cacheInstance.GetKeyInfo(key)
+			if err != nil {
+				detailedKeys = append(detailedKeys, map[string]interface{}{
+					"key":   key,
+					"error": err.Error(),
+				})
+				continue
+			}
+			
+			rawValue, err := cacheInstance.GetRawValue(key)
+			if err != nil {
+				info["preview_error"] = err.Error()
+			} else {
+				info["preview"] = cacheInstance.FormatValuePreview(rawValue)
+			}
+			
+			detailedKeys = append(detailedKeys, info)
+		}
+		
+		output := map[string]interface{}{
+			"keys":  detailedKeys,
+			"count": len(keys),
+		}
+		
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+	} else {
+		var simpleKeys []map[string]string
+		for _, key := range keys {
+			keyType := "unknown"
+			if strings.HasPrefix(key, "repo:") {
+				keyType = "repository"
+			} else if strings.HasPrefix(key, "file:") {
+				keyType = "file"
+			}
+			simpleKeys = append(simpleKeys, map[string]string{
+				"key":  key,
+				"type": keyType,
+			})
+		}
+		
+		output := map[string]interface{}{
+			"keys":  simpleKeys,
+			"count": len(keys),
+		}
+		
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+	}
+	
+	return nil
+}
+
+// ************************************************************************************************
+// formatKeysRaw formats keys output as raw text (one key per line).
+func formatKeysRaw(keys []string) error {
+	for _, key := range keys {
+		fmt.Println(key)
+	}
+	return nil
+}
+
+// ************************************************************************************************
+// getSpecificKeyContent retrieves and displays content for a specific key.
+func getSpecificKeyContent(cacheInstance *cache.Cache, key, outputFormat string) error {
+	rawValue, err := cacheInstance.GetRawValue(key)
+	if err != nil {
+		return fmt.Errorf("failed to get content for key %s\n>    %w", key, err)
+	}
+	
+	switch outputFormat {
+	case "table":
+		info, err := cacheInstance.GetKeyInfo(key)
+		if err != nil {
+			return fmt.Errorf("failed to get key info: %w", err)
+		}
+		
+		fmt.Printf("Key: %s\n", key)
+		fmt.Printf("Type: %s\n", info["type"])
+		fmt.Printf("Size: %d bytes\n", info["value_size"])
+		if info["ttl_seconds"] != nil {
+			fmt.Printf("TTL: %d seconds\n", info["ttl_seconds"])
+		} else {
+			fmt.Printf("TTL: No expiration\n")
+		}
+		fmt.Println(strings.Repeat("-", 50))
+		fmt.Println(string(rawValue))
+		
+	case "json":
+		info, err := cacheInstance.GetKeyInfo(key)
+		if err != nil {
+			return fmt.Errorf("failed to get key info: %w", err)
+		}
+		
+		output := map[string]interface{}{
+			"key":     key,
+			"info":    info,
+			"content": string(rawValue),
+		}
+		
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		
+	case "raw":
+		fmt.Print(string(rawValue))
+		
+	default:
+		return fmt.Errorf("invalid format: %s", outputFormat)
+	}
+	
+	return nil
+}
+
+// ************************************************************************************************
+// getAllKeysContent retrieves and displays content preview for all keys.
+func getAllKeysContent(cacheInstance *cache.Cache, outputFormat, filter string) error {
+	// Determine key prefix based on filter
+	var prefix string
+	switch filter {
+	case "repo":
+		prefix = "repo:"
+	case "file":
+		prefix = "file:"
+	case "":
+		prefix = ""
+	default:
+		return fmt.Errorf("invalid filter: %s (valid options: repo, file)", filter)
+	}
+	
+	keysWithValues, err := cacheInstance.GetAllKeysWithValues(prefix)
+	if err != nil {
+		return fmt.Errorf("failed to get keys with values\n>    %w", err)
+	}
+	
+	switch outputFormat {
+	case "table":
+		for key, value := range keysWithValues {
+			preview := cacheInstance.FormatValuePreview(value)
+			fmt.Printf("%s\n\t%s\n\n", key, preview)
+		}
+		fmt.Printf("Total keys: %d\n", len(keysWithValues))
+		
+	case "json":
+		output := make(map[string]interface{})
+		for key, value := range keysWithValues {
+			output[key] = map[string]interface{}{
+				"size":    len(value),
+				"preview": cacheInstance.FormatValuePreview(value),
+				"content": string(value),
+			}
+		}
+		
+		result := map[string]interface{}{
+			"keys":  output,
+			"count": len(keysWithValues),
+		}
+		
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		
+	case "raw":
+		for key, value := range keysWithValues {
+			fmt.Printf("%s\n\t%s\n\n", key, string(value))
+		}
+		
+	default:
+		return fmt.Errorf("invalid format: %s", outputFormat)
+	}
+	
 	return nil
 }
 
@@ -434,18 +802,83 @@ Examples:
 }
 
 // ************************************************************************************************
+// listKeysCmd represents the listkeys command
+var listKeysCmd = &cobra.Command{
+	Use:   "listkeys",
+	Short: "List all keys in the BadgerDB cache",
+	Long: `List all keys stored in the BadgerDB cache with optional filtering and formatting.
+	
+This command provides comprehensive inspection of cache contents including repository
+and file keys. You can filter by key type and choose different output formats.
+
+Examples:
+  repomix-mcp listkeys                                    # List all keys using config file
+  repomix-mcp listkeys --db-path ~/.repomix-mcp          # List keys using direct cache path
+  repomix-mcp listkeys --verbose                         # Show detailed key information
+  repomix-mcp listkeys --format json                     # Output in JSON format
+  repomix-mcp listkeys --filter repo                     # Show only repository keys
+  repomix-mcp listkeys --filter file                     # Show only file keys`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runListKeysCommand(cmd, args)
+	},
+}
+
+// ************************************************************************************************
+// getContentCmd represents the getcontent command
+var getContentCmd = &cobra.Command{
+	Use:   "getcontent [key]",
+	Short: "Get content for specific key(s) from BadgerDB cache",
+	Long: `Retrieve and display content from the BadgerDB cache for inspection and debugging.
+
+If no key is provided, all keys with their content previews will be displayed.
+If a specific key is provided, the full content for that key will be shown.
+
+Examples:
+  repomix-mcp getcontent                                  # Show all keys with content preview
+  repomix-mcp getcontent "repo:my-project"               # Show full content for specific key
+  repomix-mcp getcontent --db-path ~/.repomix-mcp        # Use direct cache path
+  repomix-mcp getcontent --format json                   # Output in JSON format
+  repomix-mcp getcontent --filter repo                   # Show only repository content`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runGetContentCommand(cmd, args)
+	},
+}
+
+// ************************************************************************************************
 // Global flags
-var configFile string
+var (
+	configFile string
+	dbPath     string
+	verbose    bool
+	format     string
+	filter     string
+)
 
 func init() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.json", "configuration file path")
+
+	// Add cache inspection command flags
+	listKeysCmd.Flags().StringVarP(&dbPath, "db-path", "d", "", "direct path to cache directory (bypasses config file)")
+	listKeysCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed key information")
+	listKeysCmd.Flags().StringVar(&format, "format", "table", "output format (table, json, raw)")
+	listKeysCmd.Flags().StringVar(&filter, "filter", "", "filter keys by type (repo, file)")
+
+	getContentCmd.Flags().StringVarP(&dbPath, "db-path", "d", "", "direct path to cache directory (bypasses config file)")
+	getContentCmd.Flags().StringVar(&format, "format", "table", "output format (table, json, raw)")
+	getContentCmd.Flags().StringVar(&filter, "filter", "", "filter keys by type (repo, file)")
+
+	// Add verbose flag to existing commands
+	indexCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed cache operations during indexing")
+	serveCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed cache operations during serving")
 
 	// Add subcommands
 	rootCmd.AddCommand(indexCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(listKeysCmd)
+	rootCmd.AddCommand(getContentCmd)
 
 	// Add config subcommands
 	configCmd.AddCommand(configExampleCmd)
@@ -478,6 +911,11 @@ func main() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		// Skip initialization for config example command
 		if cmd.Name() == "example" {
+			return nil
+		}
+		
+		// Skip initialization for cache inspection commands when using direct db-path
+		if (cmd.Name() == "listkeys" || cmd.Name() == "getcontent") && dbPath != "" {
 			return nil
 		}
 

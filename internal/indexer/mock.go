@@ -18,5 +18,9 @@ var (
 	mock_osRemove      = os.Remove
 	mock_osStat        = os.Stat
 	mock_osIsNotExist  = os.IsNotExist
+	mock_osWriteFile   = os.WriteFile
 	mock_timeNow       = time.Now
 )
+
+// Type alias for os.FileInfo to use in mock functions
+type mock_osFileInfo = os.FileInfo
