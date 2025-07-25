@@ -30,6 +30,7 @@ Repomix-MCP bridges the gap between your private repositories and AI tools by pr
 - 🔌 **MCP Integration**: Standard Model Context Protocol for AI tool compatibility
 - 📊 **Comprehensive Logging**: Detailed logging and error reporting
 - 🔧 **Flexible Configuration**: Support for multiple repository types and indexing rules
+- 🎯 **Smart Go Analysis**: Advanced Go AST parsing with configurable export filtering (`includeNonExported`)
 
 ## Installation
 
@@ -77,7 +78,8 @@ Edit the configuration to add your repositories:
       "indexing": {
         "enabled": true,
         "excludePatterns": ["*.log", "node_modules"],
-        "includePatterns": ["*.go", "*.md", "*.json"]
+        "includePatterns": ["*.go", "*.md", "*.json"],
+        "includeNonExported": false
       }
     }
   },
@@ -204,17 +206,138 @@ Control what gets indexed:
   "indexing": {
     "enabled": true,
     "excludePatterns": [
-      "*.log", "node_modules", ".git", 
+      "*.log", "node_modules", ".git",
       "vendor", "target", "build"
     ],
     "includePatterns": [
-      "*.go", "*.js", "*.py", "*.md", 
+      "*.go", "*.js", "*.py", "*.md",
       "*.json", "*.yaml"
     ],
-    "maxFileSize": "1MB"
+    "maxFileSize": "1MB",
+    "includeNonExported": false
   }
 }
 ```
+
+### Go Module Configuration
+
+Configure Go-specific analysis and documentation:
+
+```json
+{
+  "goModule": {
+    "enabled": true,
+    "includeNonExported": false,
+    "parseComments": true,
+    "includeTestFiles": false,
+    "includeVendor": false
+  }
+}
+```
+
+#### Go Module Options
+
+**`enabled`** (boolean, default: `true`):
+- Enable Go-specific AST analysis and documentation
+- When disabled, Go files are processed as regular text files
+
+**`includeNonExported`** (boolean, default: `false`):
+- Controls visibility of Go constructs in documentation
+- `false`: Only exported (public) constructs (functions, types, variables starting with uppercase)
+- `true`: All constructs including private/internal implementations
+
+**`parseComments`** (boolean, default: `true`):
+- Include Go documentation comments in the output
+- Preserves function, type, and package documentation
+- Useful for understanding API usage and behavior
+
+**`includeTestFiles`** (boolean, default: `false`):
+- Include `*_test.go` files in the analysis
+- Useful for understanding usage patterns and examples
+- May increase output size significantly
+
+**`includeVendor`** (boolean, default: `false`):
+- Include files from the `vendor/` directory
+- Generally not recommended as it includes third-party code
+- Can significantly increase indexing time and output size
+
+#### Configuration Examples
+
+**API Documentation Focus:**
+```json
+{
+  "goModule": {
+    "enabled": true,
+    "includeNonExported": false,
+    "parseComments": true,
+    "includeTestFiles": false,
+    "includeVendor": false
+  }
+}
+```
+
+**Complete Codebase Analysis:**
+```json
+{
+  "goModule": {
+    "enabled": true,
+    "includeNonExported": true,
+    "parseComments": true,
+    "includeTestFiles": true,
+    "includeVendor": false
+  }
+}
+```
+
+**Minimal Processing (text-only):**
+```json
+{
+  "goModule": {
+    "enabled": false
+  }
+}
+```
+
+#### includeNonExported Option
+
+The `includeNonExported` option specifically affects Go project indexing:
+
+**`false` (default)**:
+- Only exported (public) Go constructs are indexed
+- Functions, types, variables, and constants starting with uppercase letters
+- Results in smaller, cleaner documentation focused on public APIs
+- Better performance and reduced token usage
+
+**`true`**:
+- All Go constructs are indexed (both exported and non-exported)
+- Complete codebase analysis including internal implementations
+- Useful for comprehensive code reviews and architecture analysis
+- Larger output but more detailed insights
+
+**Configuration Examples:**
+
+```json
+// For API documentation and external usage
+{
+  "indexing": {
+    "enabled": true,
+    "includeNonExported": false,
+    "includePatterns": ["*.go", "*.md"]
+  }
+}
+
+// For complete codebase analysis
+{
+  "indexing": {
+    "enabled": true,
+    "includeNonExported": true,
+    "includePatterns": ["*.go", "*.md"],
+    "maxFileSize": "2MB"
+  }
+}
+```
+
+**Note**: The `includeNonExported` option can be configured both globally in `goModule` configuration and per-tool-call in the MCP `get-library-docs` tool. The tool-level parameter takes precedence over the global configuration.
 
 ### Cache Configuration
 
@@ -367,9 +490,52 @@ Fetches documentation for a repository using its ID.
       "type": "number",
       "description": "Maximum number of tokens to return",
       "default": 10000
+    },
+    "includeNonExported": {
+      "type": "boolean",
+      "description": "Include non-exported constructs in Go projects (default: false)",
+      "default": false
     }
   },
   "required": ["context7CompatibleLibraryID"]
+}
+```
+
+**New Feature: includeNonExported**
+
+The `includeNonExported` parameter controls the level of detail in Go project documentation:
+
+- **`false` (default)**: Only exported (public) constructs are included
+  - Functions, types, variables, and constants that start with uppercase letters
+  - Provides clean API documentation focused on public interfaces
+  - Faster processing and smaller output
+
+- **`true`**: All constructs (both exported and non-exported) are included
+  - Complete codebase analysis including internal implementations
+  - Useful for code reviews, architecture analysis, and refactoring
+  - More comprehensive but larger output
+
+**Usage Examples:**
+
+```json
+// API documentation (public interface only)
+{
+  "name": "get-library-docs",
+  "arguments": {
+    "context7CompatibleLibraryID": "gomod:github.com/sirupsen/logrus",
+    "includeNonExported": false,
+    "tokens": 8000
+  }
+}
+
+// Complete code analysis (all constructs)
+{
+  "name": "get-library-docs",
+  "arguments": {
+    "context7CompatibleLibraryID": "my-go-project",
+    "includeNonExported": true,
+    "tokens": 15000
+  }
 }
 ```
 

@@ -15,7 +15,7 @@ type RepositoryType string
 const (
 	// RepositoryTypeLocal represents a local filesystem repository.
 	RepositoryTypeLocal RepositoryType = "local"
-	
+
 	// RepositoryTypeRemote represents a remote Git repository.
 	RepositoryTypeRemote RepositoryType = "remote"
 )
@@ -27,10 +27,10 @@ type AuthType string
 const (
 	// AuthTypeNone indicates no authentication is required.
 	AuthTypeNone AuthType = "none"
-	
+
 	// AuthTypeSSH indicates SSH key-based authentication.
 	AuthTypeSSH AuthType = "ssh"
-	
+
 	// AuthTypeToken indicates token-based authentication.
 	AuthTypeToken AuthType = "token"
 )
@@ -49,23 +49,23 @@ type RepositoryAuth struct {
 // IndexingConfig defines configuration options for repository indexing.
 // It controls which files are processed and how the indexing operation behaves.
 type IndexingConfig struct {
-	Enabled           bool     `json:"enabled" mapstructure:"enabled"`                     // Whether indexing is enabled
-	ExcludePatterns   []string `json:"excludePatterns" mapstructure:"excludePatterns"`     // File patterns to exclude
-	IncludePatterns   []string `json:"includePatterns" mapstructure:"includePatterns"`     // File patterns to include
-	MaxFileSize       string   `json:"maxFileSize" mapstructure:"maxFileSize"`             // Maximum file size to index
-	IncludeNonExported bool    `json:"includeNonExported" mapstructure:"includeNonExported"` // Include non-exported constructs (default: false)
+	Enabled            bool     `json:"enabled" mapstructure:"enabled"`                       // Whether indexing is enabled
+	ExcludePatterns    []string `json:"excludePatterns" mapstructure:"excludePatterns"`       // File patterns to exclude
+	IncludePatterns    []string `json:"includePatterns" mapstructure:"includePatterns"`       // File patterns to include
+	MaxFileSize        string   `json:"maxFileSize" mapstructure:"maxFileSize"`               // Maximum file size to index
+	IncludeNonExported bool     `json:"includeNonExported" mapstructure:"includeNonExported"` // Include non-exported constructs (default: false)
 }
 
 // ************************************************************************************************
 // RepositoryConfig represents configuration for a single repository.
 // It contains all necessary information to clone, authenticate, and index a repository.
 type RepositoryConfig struct {
-	Type     RepositoryType  `json:"type" mapstructure:"type"`         // Repository source type
-	Path     string          `json:"path" mapstructure:"path"`         // Local path or remote URL
-	URL      string          `json:"url" mapstructure:"url"`           // Git repository URL for remote repos
-	Auth     RepositoryAuth  `json:"auth" mapstructure:"auth"`         // Authentication configuration
-	Indexing IndexingConfig  `json:"indexing" mapstructure:"indexing"` // Indexing behavior configuration
-	Branch   string          `json:"branch" mapstructure:"branch"`     // Git branch to index (default: main)
+	Type     RepositoryType `json:"type" mapstructure:"type"`         // Repository source type
+	Path     string         `json:"path" mapstructure:"path"`         // Local path or remote URL
+	URL      string         `json:"url" mapstructure:"url"`           // Git repository URL for remote repos
+	Auth     RepositoryAuth `json:"auth" mapstructure:"auth"`         // Authentication configuration
+	Indexing IndexingConfig `json:"indexing" mapstructure:"indexing"` // Indexing behavior configuration
+	Branch   string         `json:"branch" mapstructure:"branch"`     // Git branch to index (default: main)
 }
 
 // ************************************************************************************************
@@ -84,13 +84,24 @@ type ServerConfig struct {
 	Port     int    `json:"port" mapstructure:"port"`         // Server listening port
 	LogLevel string `json:"logLevel" mapstructure:"logLevel"` // Logging verbosity level
 	Host     string `json:"host" mapstructure:"host"`         // Server binding host
-	
+
 	// HTTPS Configuration
 	HTTPSEnabled bool   `json:"httpsEnabled" mapstructure:"httpsEnabled"` // Enable HTTPS server
 	HTTPSPort    int    `json:"httpsPort" mapstructure:"httpsPort"`       // HTTPS server port (default: 9443)
 	CertPath     string `json:"certPath" mapstructure:"certPath"`         // Path to TLS certificate file
 	KeyPath      string `json:"keyPath" mapstructure:"keyPath"`           // Path to TLS private key file
 	AutoGenCert  bool   `json:"autoGenCert" mapstructure:"autoGenCert"`   // Auto-generate self-signed certificate
+}
+
+// ************************************************************************************************
+// GoModuleConfig defines configuration for Go module documentation processing.
+// It controls how Go projects are analyzed and documented, including AST parsing options.
+type GoModuleConfig struct {
+	Enabled            bool `json:"enabled" mapstructure:"enabled"`                       // Enable Go-specific analysis
+	IncludeNonExported bool `json:"includeNonExported" mapstructure:"includeNonExported"` // Include non-exported constructs (default: false)
+	ParseComments      bool `json:"parseComments" mapstructure:"parseComments"`           // Parse and include Go doc comments
+	IncludeTestFiles   bool `json:"includeTestFiles" mapstructure:"includeTestFiles"`     // Include *_test.go files in analysis
+	IncludeVendor      bool `json:"includeVendor" mapstructure:"includeVendor"`           // Include vendor directory files
 }
 
 // ************************************************************************************************
@@ -146,13 +157,13 @@ type SearchResult struct {
 // SearchQuery defines parameters for content search operations.
 // It supports various search modes and filtering options.
 type SearchQuery struct {
-	Query        string   `json:"query"`        // Search query string
-	RepositoryID string   `json:"repositoryId"` // Target repository (empty for all)
-	FilePattern  string   `json:"filePattern"`  // File name pattern filter
-	Language     string   `json:"language"`     // Programming language filter
-	MaxResults   int      `json:"maxResults"`   // Maximum number of results
-	Topic        string   `json:"topic"`        // Topic filter for focused search
-	Tokens       int      `json:"tokens"`       // Maximum tokens in response
+	Query        string `json:"query"`        // Search query string
+	RepositoryID string `json:"repositoryId"` // Target repository (empty for all)
+	FilePattern  string `json:"filePattern"`  // File name pattern filter
+	Language     string `json:"language"`     // Programming language filter
+	MaxResults   int    `json:"maxResults"`   // Maximum number of results
+	Topic        string `json:"topic"`        // Topic filter for focused search
+	Tokens       int    `json:"tokens"`       // Maximum tokens in response
 }
 
 // ************************************************************************************************
@@ -167,18 +178,18 @@ type JSONRPCRequest struct {
 // ************************************************************************************************
 // JSONRPCResponse represents a JSON-RPC 2.0 response message.
 type JSONRPCResponse struct {
-	JsonRPC string      `json:"jsonrpc"`          // JSON-RPC version (must be "2.0")
-	ID      interface{} `json:"id"`               // Request identifier (matches request ID)
-	Result  interface{} `json:"result,omitempty"` // Result data (on success)
-	Error   *JSONRPCError `json:"error,omitempty"` // Error information (on failure)
+	JsonRPC string        `json:"jsonrpc"`          // JSON-RPC version (must be "2.0")
+	ID      interface{}   `json:"id"`               // Request identifier (matches request ID)
+	Result  interface{}   `json:"result,omitempty"` // Result data (on success)
+	Error   *JSONRPCError `json:"error,omitempty"`  // Error information (on failure)
 }
 
 // ************************************************************************************************
 // JSONRPCError represents a JSON-RPC 2.0 error object.
 type JSONRPCError struct {
-	Code    int         `json:"code"`             // Error code
-	Message string      `json:"message"`          // Error message
-	Data    interface{} `json:"data,omitempty"`   // Additional error data
+	Code    int         `json:"code"`           // Error code
+	Message string      `json:"message"`        // Error message
+	Data    interface{} `json:"data,omitempty"` // Additional error data
 }
 
 // ************************************************************************************************
