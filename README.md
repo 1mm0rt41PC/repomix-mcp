@@ -3,7 +3,7 @@
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/doc/go1.24)
 [![Coverage](https://img.shields.io/badge/Coverage-0%25-red.svg)](coverage.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue.svg)](https://github.com/1mm0rt41PC/repomix-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/1mm0rt41PC/repomix-mcp/releases)
 [![Windows](https://img.shields.io/badge/Windows-Compatible-success.svg)](https://github.com/1mm0rt41PC/repomix-mcp)
 [![Linux](https://img.shields.io/badge/Linux-Compatible-success.svg)](https://github.com/1mm0rt41PC/repomix-mcp)
 
