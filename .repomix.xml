@@ -44,6 +44,9 @@ internal\cache\cache.go
 internal\cache\mock.go
 internal\config\config.go
 internal\config\mock.go
+internal\godoc\executor.go
+internal\godoc\godoc.go
+internal\godoc\mock.go
 internal\indexer\indexer.go
 internal\indexer\mock.go
 internal\mcp\server.go
@@ -54,6 +57,7 @@ internal\repository\repository.go
 internal\search\mock.go
 internal\search\search.go
 pkg\types\errors.go
+pkg\types\godoc.go
 pkg\types\types.go
 </directory_structure>
 
@@ -226,6 +230,98 @@ var mock_osWriteFile = os.WriteFile  // internal\config\mock.go:15
 
 </file>
 
+<file path="internal\godoc\executor.go" package="godoc">
+// Package: godoc
+// File: internal\godoc\executor.go
+
+func (*GoDocRetriever) createCommandContext() (context.Context, context.CancelFunc)  // internal\godoc\executor.go:340
+func (*GoDocRetriever) executeGoCommands(modulePath string, tempDir string) (*GoModuleInfo, error)  // internal\godoc\executor.go:23
+func (*GoDocRetriever) getGoVersion() (string, error)  // internal\godoc\executor.go:324
+func (*GoDocRetriever) getModule(modulePath string, tempDir string) (string, error)  // internal\godoc\executor.go:125
+func (*GoDocRetriever) initGoModule(tempDir string) error  // internal\godoc\executor.go:104
+func (*GoDocRetriever) listPackages(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:266
+func (*GoDocRetriever) listPackagesSimple(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:302
+func (*GoDocRetriever) runGoDoc(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:182
+func (*GoDocRetriever) runGoDocDirect(path string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:243
+func (*GoDocRetriever) tryAlternativeDocApproaches(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:220
+func (*GoDocRetriever) vendorModule(tempDir string) error  // internal\godoc\executor.go:161
+
+</file>
+
+<file path="internal\godoc\godoc.go" package="godoc">
+// Package: godoc
+// File: internal\godoc\godoc.go
+
+var err error  // internal\godoc\godoc.go:192
+var formatted strings.Builder  // internal\godoc\godoc.go:451
+var moduleInfo *GoModuleInfo  // internal\godoc\godoc.go:190
+
+type GoDocRetriever struct {
+    config *types.GoModuleConfig
+    tempDirBase string
+    cache CacheInterface
+    verbose bool
+}  // internal\godoc\godoc.go:22
+type GoModuleInfo struct {
+    ModulePath string `json:"modulePath"`
+    Documentation string `json:"documentation"`
+    AllDocs string `json:"allDocs"`
+    PackageList []string `json:"packageList"`
+    Examples map[string]string `json:"examples"`
+    CachedAt time.Time `json:"cachedAt"`
+    Version string `json:"version"`
+    GoVersion string `json:"goVersion"`
+    ErrorInfo string `json:"errorInfo"`
+}  // internal\godoc\godoc.go:40
+
+type CacheInterface interface {
+    GetRepositoryfunc(string) (*types.RepositoryIndex, error)
+    StoreRepositoryfunc(*types.RepositoryIndex) error
+    ListRepositoriesfunc() ([]string, error)
+}  // internal\godoc\godoc.go:31
+
+func IsGoModulePath(libraryName string) bool  // internal\godoc\godoc.go:121
+func NewGoDocRetriever(config *types.GoModuleConfig, cache CacheInterface) (*GoDocRetriever, error)  // internal\godoc\godoc.go:66
+
+func (*GoDocRetriever) CreateSyntheticRepository(modulePath string, info *GoModuleInfo) *types.RepositoryIndex  // internal\godoc\godoc.go:270
+func (*GoDocRetriever) GetOrRetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:222
+func (*GoDocRetriever) RetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:170
+func (*GoDocRetriever) SetVerbose(verbose bool)  // internal\godoc\godoc.go:105
+func (*GoDocRetriever) cacheModuleInfo(modulePath string, info *GoModuleInfo) error  // internal\godoc\godoc.go:467
+func (*GoDocRetriever) calculateContentHash(content string) string  // internal\godoc\godoc.go:437
+func (*GoDocRetriever) formatDocumentation(command string, content string) string  // internal\godoc\godoc.go:450
+func (*GoDocRetriever) getCacheKey(modulePath string) string  // internal\godoc\godoc.go:374
+func (*GoDocRetriever) isCacheValid(info *GoModuleInfo) bool  // internal\godoc\godoc.go:517
+func (*GoDocRetriever) parseRepositoryToModuleInfo(repo *types.RepositoryIndex) *GoModuleInfo  // internal\godoc\godoc.go:473
+func (*GoDocRetriever) validateGoCommand() error  // internal\godoc\godoc.go:402
+func (*GoDocRetriever) validateModulePath(modulePath string) error  // internal\godoc\godoc.go:379
+func (*GoDocRetriever) withTempDir(fn func(string) error) error  // internal\godoc\godoc.go:417
+
+</file>
+
+<file path="internal\godoc\mock.go" package="godoc">
+// Package: godoc
+// File: internal\godoc\mock.go
+
+var mock_execCommand = exec.Command  // internal\godoc\mock.go:55
+var mock_execCommandContext = exec.CommandContext  // internal\godoc\mock.go:58
+var mock_execLookPath = exec.LookPath  // internal\godoc\mock.go:61
+var mock_osIsNotExist = os.IsNotExist  // internal\godoc\mock.go:43
+var mock_osMkdirAll = os.MkdirAll  // internal\godoc\mock.go:31
+var mock_osMkdirTemp = os.MkdirTemp  // internal\godoc\mock.go:34
+var mock_osReadFile = os.ReadFile  // internal\godoc\mock.go:46
+var mock_osRemoveAll = os.RemoveAll  // internal\godoc\mock.go:37
+var mock_osStat = os.Stat  // internal\godoc\mock.go:40
+var mock_osTempDir = os.TempDir  // internal\godoc\mock.go:19
+var mock_osUserHomeDir = func() (string, error)  // internal\godoc\mock.go:22
+var mock_osWriteFile = os.WriteFile  // internal\godoc\mock.go:49
+var mock_timeNow = time.Now  // internal\godoc\mock.go:67
+var mock_timeParseDuration = time.ParseDuration  // internal\godoc\mock.go:70
+
+type mock_osFileInfo = os.FileInfo  // internal\godoc\mock.go:74
+
+</file>
+
 <file path="internal\indexer\indexer.go" package="indexer">
 // Package: indexer
 // File: internal\indexer\indexer.go
@@ -233,17 +329,18 @@ var mock_osWriteFile = os.WriteFile  // internal\config\mock.go:15
 const StrategyGoNative   // internal\indexer\indexer.go:26
 const StrategyRepomix = iota  // internal\indexer\indexer.go:23
 
-var currentFile *FileContent  // internal\indexer\indexer.go:321
-var fileContentLines []string  // internal\indexer\indexer.go:323
-var files []FileContent  // internal\indexer\indexer.go:318
-var inFileBlock bool  // internal\indexer\indexer.go:322
+var currentFile *FileContent  // internal\indexer\indexer.go:353
+var fileContentLines []string  // internal\indexer\indexer.go:355
+var files []FileContent  // internal\indexer\indexer.go:350
+var inFileBlock bool  // internal\indexer\indexer.go:354
+var readmeFiles []types.IndexedFile  // internal\indexer\indexer.go:589
 
 type IndexingStrategy = int  // internal\indexer\indexer.go:19
 
 type FileContent struct {
     Path string
     Content string
-}  // internal\indexer\indexer.go:305
+}  // internal\indexer\indexer.go:337
 type Indexer struct {
     repomixPath string
     tempDir string
@@ -254,17 +351,18 @@ func NewIndexer() (*Indexer, error)  // internal\indexer\indexer.go:65
 
 func (*Indexer) Close() error  // internal\indexer\indexer.go:95
 func (*Indexer) DetermineIndexingStrategy(localPath string) IndexingStrategy  // internal\indexer\indexer.go:114
-func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:453
+func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:485
 func (*Indexer) IndexRepository(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:155
-func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:499
+func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:531
 func (IndexingStrategy) String() string  // internal\indexer\indexer.go:30
-func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:476
-func (*Indexer) calculateContentHash(content string) string  // internal\indexer\indexer.go:379
-func (*Indexer) detectLanguage(filePath string) string  // internal\indexer\indexer.go:397
-func (*Indexer) extractFilesFromXML(content string) ([]FileContent, error)  // internal\indexer\indexer.go:317
+func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:508
+func (*Indexer) calculateContentHash(content string) string  // internal\indexer\indexer.go:411
+func (*Indexer) detectLanguage(filePath string) string  // internal\indexer\indexer.go:429
+func (*Indexer) extractFilesFromXML(content string) ([]FileContent, error)  // internal\indexer\indexer.go:349
+func (*Indexer) findReadmeFiles(localPath string, repositoryID string) ([]types.IndexedFile, error)  // internal\indexer\indexer.go:584
 func (*Indexer) indexRepositoryWithGo(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:178
-func (*Indexer) indexRepositoryWithRepomix(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:200
-func (*Indexer) parseRepomixOutput(repositoryID string, localPath string, content string) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:261
+func (*Indexer) indexRepositoryWithRepomix(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:216
+func (*Indexer) parseRepomixOutput(repositoryID string, localPath string, content string) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:293
 
 </file>
 
@@ -291,20 +389,19 @@ type mock_osFileInfo = os.FileInfo  // internal\indexer\mock.go:26
 // Package: mcp
 // File: internal\mcp\server.go
 
-var docs strings.Builder  // internal\mcp\server.go:824
-var err error  // internal\mcp\server.go:502
-var errors []string  // internal\mcp\server.go:417
-var jsonRPCReq types.JSONRPCRequest  // internal\mcp\server.go:181
-var matches []string  // internal\mcp\server.go:742
-var message strings.Builder  // internal\mcp\server.go:449
-var otherFiles []types.IndexedFile  // internal\mcp\server.go:837
-var params types.MCPToolCallParams  // internal\mcp\server.go:343
-var priorityFiles []types.IndexedFile  // internal\mcp\server.go:836
-var readmeFile *types.IndexedFile  // internal\mcp\server.go:526
-var readmePath string  // internal\mcp\server.go:527
-var refreshedCount int  // internal\mcp\server.go:416
-var repo *types.RepositoryIndex  // internal\mcp\server.go:501
-var response strings.Builder  // internal\mcp\server.go:576
+var docs strings.Builder  // internal\mcp\server.go:887
+var err error  // internal\mcp\server.go:535
+var errors []string  // internal\mcp\server.go:450
+var jsonRPCReq types.JSONRPCRequest  // internal\mcp\server.go:201
+var matches []string  // internal\mcp\server.go:800
+var message strings.Builder  // internal\mcp\server.go:482
+var otherFiles []types.IndexedFile  // internal\mcp\server.go:900
+var params types.MCPToolCallParams  // internal\mcp\server.go:363
+var priorityFiles []types.IndexedFile  // internal\mcp\server.go:899
+var readmeFiles []types.IndexedFile  // internal\mcp\server.go:1052
+var refreshedCount int  // internal\mcp\server.go:449
+var repo *types.RepositoryIndex  // internal\mcp\server.go:534
+var response strings.Builder  // internal\mcp\server.go:589
 
 type Server struct {
     config *types.Config
@@ -312,10 +409,11 @@ type Server struct {
     searchEngine SearchInterface
     repositories map[string]*types.RepositoryIndex
     verbose bool
+    goDocRetriever *godoc.GoDocRetriever
     httpServer *http.Server
     httpsServer *http.Server
     wg sync.WaitGroup
-}  // internal\mcp\server.go:24
+}  // internal\mcp\server.go:27
 
 type CacheInterface interface {
     GetRepositoryfunc(string) (*types.RepositoryIndex, error)
@@ -323,35 +421,39 @@ type CacheInterface interface {
     ListRepositoriesfunc() ([]string, error)
     InvalidateAllfunc() error
     InvalidateRepositoryfunc(string) error
-}  // internal\mcp\server.go:39
+}  // internal\mcp\server.go:45
 type SearchInterface interface {
     Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
-}  // internal\mcp\server.go:49
+}  // internal\mcp\server.go:55
 
-func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:66
+func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:72
 
-func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:781
-func (*Server) Start() error  // internal\mcp\server.go:92
-func (*Server) Stop() error  // internal\mcp\server.go:965
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:953
-func (*Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string  // internal\mcp\server.go:821
-func (*Server) findRepositoryMatches(libraryName string) []string  // internal\mcp\server.go:741
-func (*Server) getRepositoryDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:786
-func (*Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:600
-func (*Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:484
-func (*Server) handleHealth(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:655
-func (*Server) handleInitialize(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:217
-func (*Server) handleInitialized(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:238
-func (*Server) handleMCPEndpoint(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:162
-func (*Server) handlePing(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:368
-func (*Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:409
-func (*Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:375
-func (*Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:339
-func (*Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:248
-func (*Server) parseParams(params interface{}, target interface{}) error  // internal\mcp\server.go:721
-func (*Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code int, message string, data interface{})  // internal\mcp\server.go:685
-func (*Server) sendJSONRPCResult(w http.ResponseWriter, id interface{}, result interface{})  // internal\mcp\server.go:670
-func (*Server) sendToolError(w http.ResponseWriter, id interface{}, message string)  // internal\mcp\server.go:705
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:839
+func (*Server) Start() error  // internal\mcp\server.go:112
+func (*Server) Stop() error  // internal\mcp\server.go:1028
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1016
+func (*Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string  // internal\mcp\server.go:884
+func (*Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.IndexedFile  // internal\mcp\server.go:1051
+func (*Server) findRepositoryMatches(libraryName string) []string  // internal\mcp\server.go:799
+func (*Server) getGoModuleDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:1148
+func (*Server) getRepositoryDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:844
+func (*Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:658
+func (*Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:517
+func (*Server) handleHealth(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:713
+func (*Server) handleInitialize(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:237
+func (*Server) handleInitialized(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:258
+func (*Server) handleMCPEndpoint(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:182
+func (*Server) handlePing(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:388
+func (*Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:442
+func (*Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:395
+func (*Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:359
+func (*Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:268
+func (*Server) isGoModuleEnabled() bool  // internal\mcp\server.go:1119
+func (*Server) parseParams(params interface{}, target interface{}) error  // internal\mcp\server.go:779
+func (*Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code int, message string, data interface{})  // internal\mcp\server.go:743
+func (*Server) sendJSONRPCResult(w http.ResponseWriter, id interface{}, result interface{})  // internal\mcp\server.go:728
+func (*Server) sendToolError(w http.ResponseWriter, id interface{}, message string)  // internal\mcp\server.go:763
+func (*Server) tryGoModuleFallback(libraryName string) (string, error)  // internal\mcp\server.go:1124
 
 </file>
 
@@ -548,6 +650,21 @@ var ErrTimeoutError = fmt.Errorf("0x%X%X timeout_error", "REPOMIX", []byte{0x15}
 
 </file>
 
+<file path="pkg\types\godoc.go" package="types">
+// Package: types
+// File: pkg\types\godoc.go
+
+type GoModuleConfig struct {
+    Enabled bool `json:"enabled" mapstructure:"enabled"`
+    TempDirBase string `json:"tempDirBase" mapstructure:"tempDirBase"`
+    CacheTimeout string `json:"cacheTimeout" mapstructure:"cacheTimeout"`
+    CommandTimeout string `json:"commandTimeout" mapstructure:"commandTimeout"`
+    MaxRetries int `json:"maxRetries" mapstructure:"maxRetries"`
+    MaxConcurrent int `json:"maxConcurrent" mapstructure:"maxConcurrent"`
+}  // pkg\types\godoc.go:9
+
+</file>
+
 <file path="pkg\types\types.go" package="types">
 // Package: types
 // File: pkg\types\types.go
@@ -570,6 +687,7 @@ type Config struct {
     Repositories map[string]RepositoryConfig `json:"repositories" mapstructure:"repositories"`
     Cache CacheConfig `json:"cache" mapstructure:"cache"`
     Server ServerConfig `json:"server" mapstructure:"server"`
+    GoModule GoModuleConfig `json:"goModule" mapstructure:"goModule"`
 }  // pkg\types\types.go:98
 type IndexedFile struct {
     Path string `json:"path"`
@@ -580,7 +698,7 @@ type IndexedFile struct {
     Language string `json:"language"`
     RepositoryID string `json:"repositoryId"`
     Metadata map[string]string `json:"metadata"`
-}  // pkg\types\types.go:107
+}  // pkg\types\types.go:108
 type IndexingConfig struct {
     Enabled bool `json:"enabled" mapstructure:"enabled"`
     ExcludePatterns []string `json:"excludePatterns" mapstructure:"excludePatterns"`
@@ -591,66 +709,66 @@ type JSONRPCError struct {
     Code int `json:"code"`
     Message string `json:"message"`
     Data interface{} `json:"data,omitempty"`
-}  // pkg\types\types.go:176
+}  // pkg\types\types.go:177
 type JSONRPCNotification struct {
     JsonRPC string `json:"jsonrpc"`
     Method string `json:"method"`
     Params interface{} `json:"params,omitempty"`
-}  // pkg\types\types.go:184
+}  // pkg\types\types.go:185
 type JSONRPCRequest struct {
     JsonRPC string `json:"jsonrpc"`
     ID interface{} `json:"id,omitempty"`
     Method string `json:"method"`
     Params interface{} `json:"params,omitempty"`
-}  // pkg\types\types.go:158
+}  // pkg\types\types.go:159
 type JSONRPCResponse struct {
     JsonRPC string `json:"jsonrpc"`
     ID interface{} `json:"id"`
     Result interface{} `json:"result,omitempty"`
     Error *JSONRPCError `json:"error,omitempty"`
-}  // pkg\types\types.go:167
+}  // pkg\types\types.go:168
 type MCPContent struct {
     Type string `json:"type"`
     Text string `json:"text"`
-}  // pkg\types\types.go:236
+}  // pkg\types\types.go:237
 type MCPInitializeRequest struct {
     ProtocolVersion string `json:"protocolVersion"`
     Capabilities map[string]interface{} `json:"capabilities"`
     ClientInfo map[string]interface{} `json:"clientInfo"`
-}  // pkg\types\types.go:192
+}  // pkg\types\types.go:193
 type MCPInitializeResult struct {
     ProtocolVersion string `json:"protocolVersion"`
     Capabilities map[string]interface{} `json:"capabilities"`
     ServerInfo map[string]interface{} `json:"serverInfo"`
-}  // pkg\types\types.go:200
+}  // pkg\types\types.go:201
 type MCPRequest struct {
     Tool string `json:"tool"`
     Parameters map[string]interface{} `json:"parameters"`
     RequestID string `json:"requestId"`
-}  // pkg\types\types.go:244
+}  // pkg\types\types.go:245
 type MCPResponse struct {
     Success bool `json:"success"`
     Data interface{} `json:"data"`
     Error string `json:"error"`
     RequestID string `json:"requestId"`
     Metadata map[string]interface{} `json:"metadata"`
-}  // pkg\types\types.go:252
+}  // pkg\types\types.go:253
 type MCPTool struct {
     Name string `json:"name"`
     Description string `json:"description"`
     InputSchema map[string]interface{} `json:"inputSchema"`
-}  // pkg\types\types.go:214
+}  // pkg\types\types.go:215
 type MCPToolCallParams struct {
     Name string `json:"name"`
     Arguments map[string]interface{} `json:"arguments"`
-}  // pkg\types\types.go:222
+}  // pkg\types\types.go:223
 type MCPToolCallResult struct {
     Content []MCPContent `json:"content"`
     IsError bool `json:"isError"`
-}  // pkg\types\types.go:229
+}  // pkg\types\types.go:230
 type MCPToolsListResult struct {
     Tools []MCPTool `json:"tools"`
-}  // pkg\types\types.go:208
+}  // pkg\types\types.go:209
 type RepositoryAuth struct {
     Type AuthType `json:"type" mapstructure:"type"`
     KeyPath string `json:"keyPath" mapstructure:"keyPath"`
@@ -673,7 +791,7 @@ type RepositoryIndex struct {
     Files map[string]IndexedFile `json:"files"`
     Metadata map[string]interface{} `json:"metadata"`
     CommitHash string `json:"commitHash"`
-}  // pkg\types\types.go:121
+}  // pkg\types\types.go:122
 type SearchQuery struct {
     Query string `json:"query"`
     RepositoryID string `json:"repositoryId"`
@@ -682,7 +800,7 @@ type SearchQuery struct {
     MaxResults int `json:"maxResults"`
     Topic string `json:"topic"`
     Tokens int `json:"tokens"`
-}  // pkg\types\types.go:146
+}  // pkg\types\types.go:147
 type SearchResult struct {
     File IndexedFile `json:"file"`
     Score float64 `json:"score"`
@@ -690,7 +808,7 @@ type SearchResult struct {
     LineNumber int `json:"lineNumber"`
     MatchCount int `json:"matchCount"`
     Highlighted string `json:"highlighted"`
-}  // pkg\types\types.go:134
+}  // pkg\types\types.go:135
 type ServerConfig struct {
     Port int `json:"port" mapstructure:"port"`
     LogLevel string `json:"logLevel" mapstructure:"logLevel"`
@@ -754,6 +872,43 @@ func (*Manager) SaveConfig(configPath string) error  // internal\config\config.g
 
 </package>
 
+<package name="godoc">
+// Package: godoc (exported constructs only)
+
+type GoDocRetriever struct {
+    config *types.GoModuleConfig
+    tempDirBase string
+    cache CacheInterface
+    verbose bool
+}  // internal\godoc\godoc.go:22
+type GoModuleInfo struct {
+    ModulePath string `json:"modulePath"`
+    Documentation string `json:"documentation"`
+    AllDocs string `json:"allDocs"`
+    PackageList []string `json:"packageList"`
+    Examples map[string]string `json:"examples"`
+    CachedAt time.Time `json:"cachedAt"`
+    Version string `json:"version"`
+    GoVersion string `json:"goVersion"`
+    ErrorInfo string `json:"errorInfo"`
+}  // internal\godoc\godoc.go:40
+
+type CacheInterface interface {
+    GetRepositoryfunc(string) (*types.RepositoryIndex, error)
+    StoreRepositoryfunc(*types.RepositoryIndex) error
+    ListRepositoriesfunc() ([]string, error)
+}  // internal\godoc\godoc.go:31
+
+func IsGoModulePath(libraryName string) bool  // internal\godoc\godoc.go:121
+func NewGoDocRetriever(config *types.GoModuleConfig, cache CacheInterface) (*GoDocRetriever, error)  // internal\godoc\godoc.go:66
+
+func (*GoDocRetriever) CreateSyntheticRepository(modulePath string, info *GoModuleInfo) *types.RepositoryIndex  // internal\godoc\godoc.go:270
+func (*GoDocRetriever) GetOrRetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:222
+func (*GoDocRetriever) RetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:170
+func (*GoDocRetriever) SetVerbose(verbose bool)  // internal\godoc\godoc.go:105
+
+</package>
+
 <package name="indexer">
 // Package: indexer (exported constructs only)
 
@@ -765,7 +920,7 @@ type IndexingStrategy = int  // internal\indexer\indexer.go:19
 type FileContent struct {
     Path string
     Content string
-}  // internal\indexer\indexer.go:305
+}  // internal\indexer\indexer.go:337
 type Indexer struct {
     repomixPath string
     tempDir string
@@ -776,11 +931,11 @@ func NewIndexer() (*Indexer, error)  // internal\indexer\indexer.go:65
 
 func (*Indexer) Close() error  // internal\indexer\indexer.go:95
 func (*Indexer) DetermineIndexingStrategy(localPath string) IndexingStrategy  // internal\indexer\indexer.go:114
-func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:453
+func (*Indexer) GetRepomixVersion() (string, error)  // internal\indexer\indexer.go:485
 func (*Indexer) IndexRepository(repositoryID string, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error)  // internal\indexer\indexer.go:155
-func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:499
+func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:531
 func (IndexingStrategy) String() string  // internal\indexer\indexer.go:30
-func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:476
+func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:508
 
 </package>
 
@@ -821,10 +976,11 @@ type Server struct {
     searchEngine SearchInterface
     repositories map[string]*types.RepositoryIndex
     verbose bool
+    goDocRetriever *godoc.GoDocRetriever
     httpServer *http.Server
     httpsServer *http.Server
     wg sync.WaitGroup
-}  // internal\mcp\server.go:24
+}  // internal\mcp\server.go:27
 
 type CacheInterface interface {
     GetRepositoryfunc(string) (*types.RepositoryIndex, error)
@@ -832,19 +988,19 @@ type CacheInterface interface {
     ListRepositoriesfunc() ([]string, error)
     InvalidateAllfunc() error
     InvalidateRepositoryfunc(string) error
-}  // internal\mcp\server.go:39
+}  // internal\mcp\server.go:45
 type SearchInterface interface {
     Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
-}  // internal\mcp\server.go:49
+}  // internal\mcp\server.go:55
 
 func GenerateSelfSignedCert(certPath string, keyPath string, hosts []string) error  // internal\mcp\tls.go:31
 func LoadTLSConfig(certPath string, keyPath string, autoGenCert bool, hosts []string) (*tls.Config, error)  // internal\mcp\tls.go:122
-func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:66
+func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:72
 
-func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:781
-func (*Server) Start() error  // internal\mcp\server.go:92
-func (*Server) Stop() error  // internal\mcp\server.go:965
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:953
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:839
+func (*Server) Start() error  // internal\mcp\server.go:112
+func (*Server) Stop() error  // internal\mcp\server.go:1028
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1016
 
 </package>
 
@@ -965,7 +1121,16 @@ type Config struct {
     Repositories map[string]RepositoryConfig `json:"repositories" mapstructure:"repositories"`
     Cache CacheConfig `json:"cache" mapstructure:"cache"`
     Server ServerConfig `json:"server" mapstructure:"server"`
+    GoModule GoModuleConfig `json:"goModule" mapstructure:"goModule"`
 }  // pkg\types\types.go:98
+type GoModuleConfig struct {
+    Enabled bool `json:"enabled" mapstructure:"enabled"`
+    TempDirBase string `json:"tempDirBase" mapstructure:"tempDirBase"`
+    CacheTimeout string `json:"cacheTimeout" mapstructure:"cacheTimeout"`
+    CommandTimeout string `json:"commandTimeout" mapstructure:"commandTimeout"`
+    MaxRetries int `json:"maxRetries" mapstructure:"maxRetries"`
+    MaxConcurrent int `json:"maxConcurrent" mapstructure:"maxConcurrent"`
+}  // pkg\types\godoc.go:9
 type IndexedFile struct {
     Path string `json:"path"`
     Content string `json:"content"`
@@ -975,7 +1140,7 @@ type IndexedFile struct {
     Language string `json:"language"`
     RepositoryID string `json:"repositoryId"`
     Metadata map[string]string `json:"metadata"`
-}  // pkg\types\types.go:107
+}  // pkg\types\types.go:108
 type IndexingConfig struct {
     Enabled bool `json:"enabled" mapstructure:"enabled"`
     ExcludePatterns []string `json:"excludePatterns" mapstructure:"excludePatterns"`
@@ -986,66 +1151,66 @@ type JSONRPCError struct {
     Code int `json:"code"`
     Message string `json:"message"`
     Data interface{} `json:"data,omitempty"`
-}  // pkg\types\types.go:176
+}  // pkg\types\types.go:177
 type JSONRPCNotification struct {
     JsonRPC string `json:"jsonrpc"`
     Method string `json:"method"`
     Params interface{} `json:"params,omitempty"`
-}  // pkg\types\types.go:184
+}  // pkg\types\types.go:185
 type JSONRPCRequest struct {
     JsonRPC string `json:"jsonrpc"`
     ID interface{} `json:"id,omitempty"`
     Method string `json:"method"`
     Params interface{} `json:"params,omitempty"`
-}  // pkg\types\types.go:158
+}  // pkg\types\types.go:159
 type JSONRPCResponse struct {
     JsonRPC string `json:"jsonrpc"`
     ID interface{} `json:"id"`
     Result interface{} `json:"result,omitempty"`
     Error *JSONRPCError `json:"error,omitempty"`
-}  // pkg\types\types.go:167
+}  // pkg\types\types.go:168
 type MCPContent struct {
     Type string `json:"type"`
     Text string `json:"text"`
-}  // pkg\types\types.go:236
+}  // pkg\types\types.go:237
 type MCPInitializeRequest struct {
     ProtocolVersion string `json:"protocolVersion"`
     Capabilities map[string]interface{} `json:"capabilities"`
     ClientInfo map[string]interface{} `json:"clientInfo"`
-}  // pkg\types\types.go:192
+}  // pkg\types\types.go:193
 type MCPInitializeResult struct {
     ProtocolVersion string `json:"protocolVersion"`
     Capabilities map[string]interface{} `json:"capabilities"`
     ServerInfo map[string]interface{} `json:"serverInfo"`
-}  // pkg\types\types.go:200
+}  // pkg\types\types.go:201
 type MCPRequest struct {
     Tool string `json:"tool"`
     Parameters map[string]interface{} `json:"parameters"`
     RequestID string `json:"requestId"`
-}  // pkg\types\types.go:244
+}  // pkg\types\types.go:245
 type MCPResponse struct {
     Success bool `json:"success"`
     Data interface{} `json:"data"`
     Error string `json:"error"`
     RequestID string `json:"requestId"`
     Metadata map[string]interface{} `json:"metadata"`
-}  // pkg\types\types.go:252
+}  // pkg\types\types.go:253
 type MCPTool struct {
     Name string `json:"name"`
     Description string `json:"description"`
     InputSchema map[string]interface{} `json:"inputSchema"`
-}  // pkg\types\types.go:214
+}  // pkg\types\types.go:215
 type MCPToolCallParams struct {
     Name string `json:"name"`
     Arguments map[string]interface{} `json:"arguments"`
-}  // pkg\types\types.go:222
+}  // pkg\types\types.go:223
 type MCPToolCallResult struct {
     Content []MCPContent `json:"content"`
     IsError bool `json:"isError"`
-}  // pkg\types\types.go:229
+}  // pkg\types\types.go:230
 type MCPToolsListResult struct {
     Tools []MCPTool `json:"tools"`
-}  // pkg\types\types.go:208
+}  // pkg\types\types.go:209
 type RepositoryAuth struct {
     Type AuthType `json:"type" mapstructure:"type"`
     KeyPath string `json:"keyPath" mapstructure:"keyPath"`
@@ -1068,7 +1233,7 @@ type RepositoryIndex struct {
     Files map[string]IndexedFile `json:"files"`
     Metadata map[string]interface{} `json:"metadata"`
     CommitHash string `json:"commitHash"`
-}  // pkg\types\types.go:121
+}  // pkg\types\types.go:122
 type SearchQuery struct {
     Query string `json:"query"`
     RepositoryID string `json:"repositoryId"`
@@ -1077,7 +1242,7 @@ type SearchQuery struct {
     MaxResults int `json:"maxResults"`
     Topic string `json:"topic"`
     Tokens int `json:"tokens"`
-}  // pkg\types\types.go:146
+}  // pkg\types\types.go:147
 type SearchResult struct {
     File IndexedFile `json:"file"`
     Score float64 `json:"score"`
@@ -1085,7 +1250,7 @@ type SearchResult struct {
     LineNumber int `json:"lineNumber"`
     MatchCount int `json:"matchCount"`
     Highlighted string `json:"highlighted"`
-}  // pkg\types\types.go:134
+}  // pkg\types\types.go:135
 type ServerConfig struct {
     Port int `json:"port" mapstructure:"port"`
     LogLevel string `json:"logLevel" mapstructure:"logLevel"`

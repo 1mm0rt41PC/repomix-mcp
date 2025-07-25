@@ -99,6 +99,7 @@ type Config struct {
 	Repositories map[string]RepositoryConfig `json:"repositories" mapstructure:"repositories"` // Repository definitions by alias
 	Cache        CacheConfig                 `json:"cache" mapstructure:"cache"`               // Cache system configuration
 	Server       ServerConfig                `json:"server" mapstructure:"server"`             // MCP server configuration
+	GoModule     GoModuleConfig              `json:"goModule" mapstructure:"goModule"`         // Go module documentation configuration
 }
 
 // ************************************************************************************************

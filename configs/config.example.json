@@ -150,5 +150,13 @@
     "certPath": "~/.repomix-mcp/server.crt",
     "keyPath": "~/.repomix-mcp/server.key",
     "autoGenCert": true
+  },
+  "goModule": {
+    "enabled": true,
+    "tempDirBase": "~/.repomix-mcp/godoc-temp",
+    "cacheTimeout": "24h",
+    "commandTimeout": "60s",
+    "maxRetries": 3,
+    "maxConcurrent": 5
   }
 }

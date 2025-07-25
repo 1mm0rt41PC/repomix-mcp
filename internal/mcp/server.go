@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"repomix-mcp/pkg/types"
+	"repomix-mcp/internal/godoc"
 )
 
 // ************************************************************************************************
@@ -29,6 +30,9 @@ type Server struct {
 	searchEngine SearchInterface
 	repositories map[string]*types.RepositoryIndex
 	verbose      bool
+	
+	// Go module documentation retriever
+	goDocRetriever *godoc.GoDocRetriever
 	
 	// Server management
 	httpServer  *http.Server
@@ -70,12 +74,26 @@ func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchIn
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
-	return &Server{
+	server := &Server{
 		config:       config,
 		cache:        cache,
 		searchEngine: searchEngine,
 		repositories: make(map[string]*types.RepositoryIndex),
-	}, nil
+	}
+
+	// Initialize Go module retriever if enabled
+	if config.GoModule.Enabled {
+		goDocRetriever, err := godoc.NewGoDocRetriever(&config.GoModule, cache)
+		if err != nil {
+			log.Printf("Warning: failed to initialize Go module retriever: %v", err)
+			log.Printf("Go module fallback will be disabled")
+		} else {
+			server.goDocRetriever = goDocRetriever
+			log.Printf("Go module documentation fallback enabled")
+		}
+	}
+
+	return server, nil
 }
 
 // ************************************************************************************************
@@ -386,6 +404,19 @@ func (s *Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, a
 
 	// Find matching repositories
 	matches := s.findRepositoryMatches(libraryName)
+	
+	// If no matches found, try Go module fallback
+	if len(matches) == 0 && s.isGoModuleEnabled() {
+		if godoc.IsGoModulePath(libraryName) {
+			log.Printf("Attempting Go module fallback for: %s", libraryName)
+			if repoID, err := s.tryGoModuleFallback(libraryName); err == nil {
+				matches = append(matches, repoID)
+			} else {
+				log.Printf("Go module fallback failed for %s: %v", libraryName, err)
+			}
+		}
+	}
+	
 	if len(matches) == 0 {
 		s.sendToolError(w, id, fmt.Sprintf("No repository found for library: %s", libraryName))
 		return
@@ -811,6 +842,11 @@ func (s *Server) SetVerbose(verbose bool) {
 
 // getRepositoryDocs retrieves documentation for a repository.
 func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string, error) {
+	// Check if this is a Go module repository
+	if strings.HasPrefix(libraryID, "gomod:") {
+		return s.getGoModuleDocs(libraryID, topic, tokens)
+	}
+
 	// Try to get from cache first
 	if s.cache != nil {
 		repo, err := s.cache.GetRepository(libraryID)
@@ -1074,4 +1110,84 @@ func (s *Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.Indexed
 	})
 	
 	return readmeFiles
+}
+
+// ************************************************************************************************
+// Go module fallback helper methods
+
+// isGoModuleEnabled checks if Go module documentation fallback is enabled.
+func (s *Server) isGoModuleEnabled() bool {
+	return s.config.GoModule.Enabled && s.goDocRetriever != nil
+}
+
+// tryGoModuleFallback attempts to retrieve Go module documentation and cache it.
+func (s *Server) tryGoModuleFallback(libraryName string) (string, error) {
+	if !s.isGoModuleEnabled() {
+		return "", fmt.Errorf("Go module fallback is disabled")
+	}
+
+	log.Printf("Attempting Go module documentation retrieval for: %s", libraryName)
+
+	// Set verbose mode if server is verbose
+	s.goDocRetriever.SetVerbose(s.verbose)
+
+	// Retrieve documentation
+	_, err := s.goDocRetriever.GetOrRetrieveDocumentation(libraryName)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve Go module documentation: %w", err)
+	}
+
+	// Create synthetic repository ID
+	repoID := fmt.Sprintf("gomod:%s", libraryName)
+
+	log.Printf("Successfully retrieved Go module documentation for: %s (ID: %s)", libraryName, repoID)
+	return repoID, nil
+}
+
+// getGoModuleDocs retrieves documentation for a Go module repository.
+func (s *Server) getGoModuleDocs(libraryID, topic string, tokens int) (string, error) {
+	if !strings.HasPrefix(libraryID, "gomod:") {
+		return "", fmt.Errorf("invalid Go module repository ID: %s", libraryID)
+	}
+
+	// Extract module path from repository ID
+	modulePath := strings.TrimPrefix(libraryID, "gomod:")
+
+	// Try to get from cache first
+	if s.cache != nil {
+		repo, err := s.cache.GetRepository(libraryID)
+		if err == nil {
+			if s.verbose {
+				log.Printf("Found cached Go module documentation for: %s", modulePath)
+			}
+			return s.extractDocumentation(repo, topic, tokens), nil
+		}
+	}
+
+	// Not in cache, retrieve fresh documentation
+	if !s.isGoModuleEnabled() {
+		return "", fmt.Errorf("Go module fallback is disabled")
+	}
+
+	log.Printf("Retrieving fresh Go module documentation for: %s", modulePath)
+
+	// Set verbose mode if server is verbose
+	s.goDocRetriever.SetVerbose(s.verbose)
+
+	// Retrieve documentation
+	moduleInfo, err := s.goDocRetriever.RetrieveDocumentation(modulePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve Go module documentation: %w", err)
+	}
+
+	// Create synthetic repository and cache it
+	repo := s.goDocRetriever.CreateSyntheticRepository(modulePath, moduleInfo)
+	if s.cache != nil {
+		if err := s.cache.StoreRepository(repo); err != nil {
+			log.Printf("Warning: failed to cache Go module documentation for %s: %v", modulePath, err)
+		}
+	}
+
+	// Extract and return documentation
+	return s.extractDocumentation(repo, topic, tokens), nil
 }
