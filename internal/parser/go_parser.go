@@ -72,7 +72,7 @@ func NewGoParser() *GoParser {
 // ************************************************************************************************
 // ParseRepository analyzes a Go repository and extracts all language constructs.
 // It scans for Go files, parses them, and organizes constructs by type.
-func (p *GoParser) ParseRepository(repositoryID, localPath string) (*types.RepositoryIndex, error) {
+func (p *GoParser) ParseRepository(repositoryID, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error) {
 	if repositoryID == "" || localPath == "" {
 		return nil, fmt.Errorf("%w: invalid parameters", types.ErrInvalidConfig)
 	}
@@ -147,7 +147,7 @@ func (p *GoParser) ParseRepository(repositoryID, localPath string) (*types.Repos
 	}
 
 	// Generate XML content
-	xmlContent := p.generateRepomixXML(repositoryID, localPath, fileAnalyses, packageAnalyses, goFiles)
+	xmlContent := p.generateRepomixXML(repositoryID, localPath, fileAnalyses, packageAnalyses, goFiles, config.IncludeNonExported)
 
 	// Create repository index
 	repoIndex := &types.RepositoryIndex{
@@ -677,7 +677,7 @@ func (p *GoParser) calculateContentHash(content string) string {
 
 // ************************************************************************************************
 // generateRepomixXML generates XML output in repomix-compatible format for Go projects.
-func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalyses map[string]*GoFileAnalysis, packageAnalyses map[string]*GoPackageAnalysis, goFiles []string) string {
+func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalyses map[string]*GoFileAnalysis, packageAnalyses map[string]*GoPackageAnalysis, goFiles []string, includeNonExported bool) string {
 	var xml strings.Builder
 	
 	// XML header
@@ -715,7 +715,11 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 	
 	xml.WriteString("<notes>\n")
 	xml.WriteString("- Test files (*_test.go) are excluded from this analysis\n")
-	xml.WriteString("- All constructs (both exported and unexported) are included\n")
+	if includeNonExported {
+		xml.WriteString("- All constructs (both exported and unexported) are included\n")
+	} else {
+		xml.WriteString("- Only exported constructs are included\n")
+	}
 	xml.WriteString("- Constructs are organized by type for easy navigation\n")
 	xml.WriteString("- Line numbers and file locations are preserved for reference\n")
 	xml.WriteString("- Go AST parsing ensures accurate construct extraction\n")
@@ -750,6 +754,11 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 		// Group constructs by type for this file
 		fileConstructsByType := make(map[string][]GoConstruct)
 		for _, construct := range fileAnalysis.Constructs {
+			// Filter by export status if includeNonExported is false
+			if !includeNonExported && !construct.Exported {
+				continue
+			}
+			
 			constructType := construct.Type
 			if _, exists := fileConstructsByType[constructType]; !exists {
 				fileConstructsByType[constructType] = make([]GoConstruct, 0)
@@ -801,13 +810,25 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 	for _, packageName := range sortedPackages {
 		pkgAnalysis := packageAnalyses[packageName]
 		xml.WriteString(fmt.Sprintf(`<package name="%s">` + "\n", packageName))
-		xml.WriteString(fmt.Sprintf("// Package: %s (exported constructs only)\n\n", packageName))
+		if includeNonExported {
+			xml.WriteString(fmt.Sprintf("// Package: %s (all constructs)\n\n", packageName))
+		} else {
+			xml.WriteString(fmt.Sprintf("// Package: %s (exported constructs only)\n\n", packageName))
+		}
 		
 		// Sort construct types for consistent output
 		constructTypes := []string{"const", "var", "type", "struct", "interface", "func", "method"}
 		
+		// Choose which construct collection to use
+		var constructsToUse map[string][]GoConstruct
+		if includeNonExported {
+			constructsToUse = pkgAnalysis.Constructs
+		} else {
+			constructsToUse = pkgAnalysis.ExportedOnly
+		}
+		
 		for _, constructType := range constructTypes {
-			if constructs, exists := pkgAnalysis.ExportedOnly[constructType]; exists && len(constructs) > 0 {
+			if constructs, exists := constructsToUse[constructType]; exists && len(constructs) > 0 {
 				// Sort constructs by name for consistent output
 				sort.Slice(constructs, func(i, j int) bool {
 					return constructs[i].Name < constructs[j].Name

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	
+	"repomix-mcp/pkg/types"
 )
 
 func TestGoParser_ParseRepository(t *testing.T) {
@@ -105,7 +107,13 @@ type internalStruct struct {
 	// Create parser and test
 	parser := NewGoParser()
 	
-	repoIndex, err := parser.ParseRepository("test-repo", tempDir)
+	// Test with default config (includeNonExported = false)
+	config := types.IndexingConfig{
+		Enabled:           true,
+		IncludeNonExported: false,
+	}
+	
+	repoIndex, err := parser.ParseRepository("test-repo", tempDir, config)
 	if err != nil {
 		t.Fatalf("ParseRepository failed: %v", err)
 	}
@@ -357,7 +365,8 @@ func TestGoParser_generateRepomixXML(t *testing.T) {
 
 	goFiles := []string{"main.go", "helper.go"}
 
-	xml := parser.generateRepomixXML("test-repo", "/path/to/repo", fileAnalyses, packageAnalyses, goFiles)
+	// Test with includeNonExported = false (default behavior)
+	xml := parser.generateRepomixXML("test-repo", "/path/to/repo", fileAnalyses, packageAnalyses, goFiles, false)
 
 	// Verify XML structure with new format
 	expectedElements := []string{
@@ -395,4 +404,142 @@ func TestGoParser_generateRepomixXML(t *testing.T) {
 	if !strings.Contains(xml, `<package name="main">`) {
 		t.Error("Expected package section to be included")
 	}
+}
+
+func TestGoParser_IncludeNonExported(t *testing.T) {
+	// Create a temporary test directory
+	tempDir, err := os.MkdirTemp("", "go_parser_include_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create go.mod
+	goModContent := `module test-repo
+go 1.21
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	// Create test file with mixed exported/unexported constructs
+	testGoContent := `package main
+
+// Exported constructs
+const ExportedConstant = "public"
+var ExportedVariable = "public var"
+type ExportedStruct struct {
+	PublicField string
+}
+func ExportedFunction() string {
+	return "exported"
+}
+
+// Unexported constructs
+const unexportedConstant = "private"
+var unexportedVariable = "private var"
+type unexportedStruct struct {
+	privateField string
+}
+func unexportedFunction() string {
+	return "unexported"
+}
+
+func main() {
+	// Main function
+}
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(testGoContent), 0644); err != nil {
+		t.Fatalf("Failed to write main.go: %v", err)
+	}
+
+	parser := NewGoParser()
+
+	// Test with includeNonExported = false
+	t.Run("ExcludeNonExported", func(t *testing.T) {
+		config := types.IndexingConfig{
+			Enabled:           true,
+			IncludeNonExported: false,
+		}
+		
+		repoIndex, err := parser.ParseRepository("test-repo", tempDir, config)
+		if err != nil {
+			t.Fatalf("ParseRepository failed: %v", err)
+		}
+
+		xmlContent := repoIndex.Files[".repomix.xml"].Content
+
+		// Exported constructs should be present
+		exportedConstructs := []string{
+			"ExportedConstant",
+			"ExportedVariable",
+			"ExportedStruct",
+			"ExportedFunction",
+		}
+		for _, construct := range exportedConstructs {
+			if !strings.Contains(xmlContent, construct) {
+				t.Errorf("Expected exported construct '%s' to be present", construct)
+			}
+		}
+
+		// Unexported constructs should be filtered out
+		unexportedConstructs := []string{
+			"unexportedConstant",
+			"unexportedVariable",
+			"unexportedStruct",
+			"unexportedFunction",
+		}
+		for _, construct := range unexportedConstructs {
+			if strings.Contains(xmlContent, construct) {
+				t.Errorf("Expected unexported construct '%s' to be filtered out", construct)
+			}
+		}
+
+		// Check notes section
+		if !strings.Contains(xmlContent, "Only exported constructs are included") {
+			t.Error("Expected notes to indicate only exported constructs are included")
+		}
+	})
+
+	// Test with includeNonExported = true
+	t.Run("IncludeNonExported", func(t *testing.T) {
+		config := types.IndexingConfig{
+			Enabled:           true,
+			IncludeNonExported: true,
+		}
+		
+		repoIndex, err := parser.ParseRepository("test-repo", tempDir, config)
+		if err != nil {
+			t.Fatalf("ParseRepository failed: %v", err)
+		}
+
+		xmlContent := repoIndex.Files[".repomix.xml"].Content
+
+		// Both exported and unexported constructs should be present
+		allConstructs := []string{
+			"ExportedConstant",
+			"ExportedVariable",
+			"ExportedStruct",
+			"ExportedFunction",
+			"unexportedConstant",
+			"unexportedVariable",
+			"unexportedStruct",
+			"unexportedFunction",
+		}
+		for _, construct := range allConstructs {
+			if !strings.Contains(xmlContent, construct) {
+				t.Errorf("Expected construct '%s' to be present when includeNonExported=true", construct)
+			}
+		}
+
+		// Check notes section
+		if !strings.Contains(xmlContent, "All constructs (both exported and unexported) are included") {
+			t.Error("Expected notes to indicate all constructs are included")
+		}
+
+		// Check package section should say "all constructs"
+		if !strings.Contains(xmlContent, "(all constructs)") {
+			t.Error("Expected package section to indicate all constructs are included")
+		}
+	})
 }

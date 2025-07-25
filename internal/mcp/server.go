@@ -302,6 +302,11 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 						"description": "Maximum number of tokens to return",
 						"default":     10000,
 					},
+					"includeNonExported": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Include non-exported constructs in Go projects (default: false)",
+						"default":     false,
+					},
 				},
 				"required": []string{"context7CompatibleLibraryID"},
 			},
@@ -665,6 +670,7 @@ func (s *Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arg
 
 	// Extract optional parameters
 	topic, _ := arguments["topic"].(string)
+	includeNonExported, _ := arguments["includeNonExported"].(bool)
 	
 	// Handle tokens parameter (can be number or string)
 	tokens := 10000 // Default value
@@ -686,10 +692,10 @@ func (s *Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arg
 		tokens = 1000
 	}
 
-	log.Printf("Getting library docs: id=%s, topic=%s, tokens=%d", libraryID, topic, tokens)
+	log.Printf("Getting library docs: id=%s, topic=%s, tokens=%d, includeNonExported=%v", libraryID, topic, tokens, includeNonExported)
 
 	// Get repository documentation
-	docs, err := s.getRepositoryDocs(libraryID, topic, tokens)
+	docs, err := s.getRepositoryDocs(libraryID, topic, tokens, includeNonExported)
 	if err != nil {
 		s.sendToolError(w, id, err.Error())
 		return
@@ -846,10 +852,10 @@ func (s *Server) SetVerbose(verbose bool) {
 }
 
 // getRepositoryDocs retrieves documentation for a repository.
-func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string, error) {
+func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int, includeNonExported bool) (string, error) {
 	// Check if this is a Go module repository
 	if strings.HasPrefix(libraryID, "gomod:") {
-		return s.getGoModuleDocs(libraryID, topic, tokens)
+		return s.getGoModuleDocs(libraryID, topic, tokens, includeNonExported)
 	}
 
 	// Try to get from cache first
@@ -869,7 +875,7 @@ func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string,
 					}
 				}
 			}
-			return s.extractDocumentation(repo, topic, tokens), nil
+			return s.extractDocumentation(repo, topic, tokens, includeNonExported), nil
 		}
 	}
 
@@ -878,7 +884,7 @@ func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string,
 		if s.verbose {
 			log.Printf("[MEMORY] Retrieved repository: %s", libraryID)
 		}
-		return s.extractDocumentation(repo, topic, tokens), nil
+		return s.extractDocumentation(repo, topic, tokens, includeNonExported), nil
 	}
 
 	return "", fmt.Errorf("repository not found: %s", libraryID)
@@ -886,8 +892,12 @@ func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int) (string,
 
 // ************************************************************************************************
 // extractDocumentation extracts and formats documentation from a repository.
-func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string {
-	log.Printf("Starting extractDocumentation: repo=%s, topic='%s', tokens=%d", repo.Name, topic, tokens)
+func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int, includeNonExported bool) string {
+	log.Printf("Starting extractDocumentation: repo=%s, topic='%s', tokens=%d, includeNonExported=%v", repo.Name, topic, tokens, includeNonExported)
+	
+	// Note: includeNonExported only affects the initial XML generation by the Go parser,
+	// not the filtering at this extraction stage. The XML content already reflects
+	// the includeNonExported setting used during repository indexing.
 	
 	var docs strings.Builder
 	
@@ -1150,7 +1160,7 @@ func (s *Server) tryGoModuleFallback(libraryName string) (string, error) {
 }
 
 // getGoModuleDocs retrieves documentation for a Go module repository.
-func (s *Server) getGoModuleDocs(libraryID, topic string, tokens int) (string, error) {
+func (s *Server) getGoModuleDocs(libraryID, topic string, tokens int, includeNonExported bool) (string, error) {
 	if !strings.HasPrefix(libraryID, "gomod:") {
 		return "", fmt.Errorf("invalid Go module repository ID: %s", libraryID)
 	}
@@ -1165,7 +1175,7 @@ func (s *Server) getGoModuleDocs(libraryID, topic string, tokens int) (string, e
 			if s.verbose {
 				log.Printf("Found cached Go module documentation for: %s", modulePath)
 			}
-			return s.extractDocumentation(repo, topic, tokens), nil
+			return s.extractDocumentation(repo, topic, tokens, includeNonExported), nil
 		}
 	}
 
@@ -1194,5 +1204,5 @@ func (s *Server) getGoModuleDocs(libraryID, topic string, tokens int) (string, e
 	}
 
 	// Extract and return documentation
-	return s.extractDocumentation(repo, topic, tokens), nil
+	return s.extractDocumentation(repo, topic, tokens, includeNonExported), nil
 }

@@ -49,10 +49,11 @@ type RepositoryAuth struct {
 // IndexingConfig defines configuration options for repository indexing.
 // It controls which files are processed and how the indexing operation behaves.
 type IndexingConfig struct {
-	Enabled         bool     `json:"enabled" mapstructure:"enabled"`                 // Whether indexing is enabled
-	ExcludePatterns []string `json:"excludePatterns" mapstructure:"excludePatterns"` // File patterns to exclude
-	IncludePatterns []string `json:"includePatterns" mapstructure:"includePatterns"` // File patterns to include
-	MaxFileSize     string   `json:"maxFileSize" mapstructure:"maxFileSize"`         // Maximum file size to index
+	Enabled           bool     `json:"enabled" mapstructure:"enabled"`                     // Whether indexing is enabled
+	ExcludePatterns   []string `json:"excludePatterns" mapstructure:"excludePatterns"`     // File patterns to exclude
+	IncludePatterns   []string `json:"includePatterns" mapstructure:"includePatterns"`     // File patterns to include
+	MaxFileSize       string   `json:"maxFileSize" mapstructure:"maxFileSize"`             // Maximum file size to index
+	IncludeNonExported bool    `json:"includeNonExported" mapstructure:"includeNonExported"` // Include non-exported constructs (default: false)
 }
 
 // ************************************************************************************************

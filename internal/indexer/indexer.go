@@ -177,7 +177,7 @@ func (i *Indexer) IndexRepository(repositoryID, localPath string, config types.I
 // indexRepositoryWithGo indexes a Go repository using Go AST parsing.
 func (i *Indexer) indexRepositoryWithGo(repositoryID, localPath string, config types.IndexingConfig) (*types.RepositoryIndex, error) {
 	// Use Go parser for indexing
-	repoIndex, err := i.goParser.ParseRepository(repositoryID, localPath)
+	repoIndex, err := i.goParser.ParseRepository(repositoryID, localPath, config)
 	if err != nil {
 		// Fallback to repomix if Go parsing fails
 		fmt.Printf("Go parsing failed for %s, falling back to repomix: %v\n", repositoryID, err)
@@ -221,9 +221,14 @@ func (i *Indexer) indexRepositoryWithRepomix(repositoryID, localPath string, con
 	args := []string{
 		"--output", outputFile,
 		"--style", "xml",
-		"--compress",
 		"--remove-comments",
 		"--remove-empty-lines",
+	}
+	
+	// Add compression only if we don't want non-exported items
+	// Compression tends to filter out non-public elements
+	if !config.IncludeNonExported {
+		args = append(args, "--compress")
 	}
 
 	// Add include patterns
