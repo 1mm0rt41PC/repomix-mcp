@@ -94,17 +94,6 @@ type ServerConfig struct {
 }
 
 // ************************************************************************************************
-// GoModuleConfig defines configuration for Go module documentation processing.
-// It controls how Go projects are analyzed and documented, including AST parsing options.
-type GoModuleConfig struct {
-	Enabled            bool `json:"enabled" mapstructure:"enabled"`                       // Enable Go-specific analysis
-	IncludeNonExported bool `json:"includeNonExported" mapstructure:"includeNonExported"` // Include non-exported constructs (default: false)
-	ParseComments      bool `json:"parseComments" mapstructure:"parseComments"`           // Parse and include Go doc comments
-	IncludeTestFiles   bool `json:"includeTestFiles" mapstructure:"includeTestFiles"`     // Include *_test.go files in analysis
-	IncludeVendor      bool `json:"includeVendor" mapstructure:"includeVendor"`           // Include vendor directory files
-}
-
-// ************************************************************************************************
 // Config represents the complete application configuration.
 // It combines repository definitions, cache settings, and server configuration.
 type Config struct {

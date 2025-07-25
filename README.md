@@ -221,16 +221,17 @@ Control what gets indexed:
 
 ### Go Module Configuration
 
-Configure Go-specific analysis and documentation:
+Configure Go module documentation retrieval and fallback behavior:
 
 ```json
 {
   "goModule": {
     "enabled": true,
-    "includeNonExported": false,
-    "parseComments": true,
-    "includeTestFiles": false,
-    "includeVendor": false
+    "tempDirBase": "/tmp/repomix-mcp-gomod",
+    "cacheTimeout": "24h",
+    "commandTimeout": "30s",
+    "maxRetries": 3,
+    "maxConcurrent": 5
   }
 }
 ```
@@ -238,58 +239,66 @@ Configure Go-specific analysis and documentation:
 #### Go Module Options
 
 **`enabled`** (boolean, default: `true`):
-- Enable Go-specific AST analysis and documentation
-- When disabled, Go files are processed as regular text files
+- Enable Go module fallback for libraries not found in configured repositories
+- When enabled, the system can automatically fetch and document Go modules from the internet
+- Useful for resolving external Go dependencies and standard library documentation
 
-**`includeNonExported`** (boolean, default: `false`):
-- Controls visibility of Go constructs in documentation
-- `false`: Only exported (public) constructs (functions, types, variables starting with uppercase)
-- `true`: All constructs including private/internal implementations
+**`tempDirBase`** (string, default: `/tmp/repomix-mcp-gomod`):
+- Base directory for temporary Go module downloads
+- The system creates subdirectories here for each Go module being processed
+- Should be writable and have sufficient disk space for module downloads
 
-**`parseComments`** (boolean, default: `true`):
-- Include Go documentation comments in the output
-- Preserves function, type, and package documentation
-- Useful for understanding API usage and behavior
+**`cacheTimeout`** (string, default: `24h`):
+- How long to cache Go module documentation before re-fetching
+- Valid formats: "1h", "24h", "7d", etc.
+- Longer timeouts reduce network usage but may miss updates
 
-**`includeTestFiles`** (boolean, default: `false`):
-- Include `*_test.go` files in the analysis
-- Useful for understanding usage patterns and examples
-- May increase output size significantly
+**`commandTimeout`** (string, default: `30s`):
+- Timeout for individual Go commands (go mod download, go list, etc.)
+- Prevents hanging operations on slow networks or large modules
+- Valid formats: "10s", "1m", "5m", etc.
 
-**`includeVendor`** (boolean, default: `false`):
-- Include files from the `vendor/` directory
-- Generally not recommended as it includes third-party code
-- Can significantly increase indexing time and output size
+**`maxRetries`** (integer, default: `3`):
+- Maximum number of retry attempts for failed Go operations
+- Helps handle transient network issues or temporary module unavailability
+- Set to 0 to disable retries
+
+**`maxConcurrent`** (integer, default: `5`):
+- Maximum number of concurrent Go module operations
+- Limits resource usage when processing multiple modules simultaneously
+- Balance between performance and system resource consumption
 
 #### Configuration Examples
 
-**API Documentation Focus:**
+**Conservative Configuration (slower but more reliable):**
 ```json
 {
   "goModule": {
     "enabled": true,
-    "includeNonExported": false,
-    "parseComments": true,
-    "includeTestFiles": false,
-    "includeVendor": false
+    "tempDirBase": "~/.repomix-mcp/gomod",
+    "cacheTimeout": "72h",
+    "commandTimeout": "60s",
+    "maxRetries": 5,
+    "maxConcurrent": 2
   }
 }
 ```
 
-**Complete Codebase Analysis:**
+**Performance-Optimized Configuration:**
 ```json
 {
   "goModule": {
     "enabled": true,
-    "includeNonExported": true,
-    "parseComments": true,
-    "includeTestFiles": true,
-    "includeVendor": false
+    "tempDirBase": "/tmp/repomix-gomod",
+    "cacheTimeout": "12h",
+    "commandTimeout": "15s",
+    "maxRetries": 2,
+    "maxConcurrent": 10
   }
 }
 ```
 
-**Minimal Processing (text-only):**
+**Disable Go Module Fallback:**
 ```json
 {
   "goModule": {
@@ -298,46 +307,37 @@ Configure Go-specific analysis and documentation:
 }
 ```
 
-#### includeNonExported Option
+#### How Go Module Fallback Works
 
-The `includeNonExported` option specifically affects Go project indexing:
+When a library is requested via the `resolve-library-id` or `get-library-docs` tools:
 
-**`false` (default)**:
-- Only exported (public) Go constructs are indexed
-- Functions, types, variables, and constants starting with uppercase letters
-- Results in smaller, cleaner documentation focused on public APIs
-- Better performance and reduced token usage
+1. **Local Search**: First searches configured repositories for matching libraries
+2. **Go Module Detection**: If no local match is found, checks if the query looks like a Go module path
+3. **Module Resolution**: Downloads and processes the Go module using `go mod download`
+4. **Documentation Generation**: Runs repomix on the downloaded module to generate documentation
+5. **Caching**: Stores the result in cache for future requests
 
-**`true`**:
-- All Go constructs are indexed (both exported and non-exported)
-- Complete codebase analysis including internal implementations
-- Useful for comprehensive code reviews and architecture analysis
-- Larger output but more detailed insights
+**Example Go Module Paths:**
+- `github.com/sirupsen/logrus`
+- `golang.org/x/crypto/ssh`
+- `google.golang.org/grpc`
+- `github.com/gin-gonic/gin`
 
-**Configuration Examples:**
+#### Security Considerations
 
-```json
-// For API documentation and external usage
-{
-  "indexing": {
-    "enabled": true,
-    "includeNonExported": false,
-    "includePatterns": ["*.go", "*.md"]
-  }
-}
+**Important**: Go module fallback downloads code from the internet. Consider these security implications:
 
-// For complete codebase analysis
-{
-  "indexing": {
-    "enabled": true,
-    "includeNonExported": true,
-    "includePatterns": ["*.go", "*.md"],
-    "maxFileSize": "2MB"
-  }
-}
-```
+- **Network Access**: The server needs internet access to download modules
+- **Disk Usage**: Downloaded modules consume disk space in `tempDirBase`
+- **Execution**: Go commands are executed on the server (go mod download, go list)
+- **Trust**: Only download modules from trusted sources
 
-**Note**: The `includeNonExported` option can be configured both globally in `goModule` configuration and per-tool-call in the MCP `get-library-docs` tool. The tool-level parameter takes precedence over the global configuration.
+**Recommended Security Practices:**
+- Use a dedicated temporary directory with appropriate permissions
+- Monitor disk usage in the temporary directory
+- Consider running in a sandboxed environment
+- Regularly clean up old temporary files
+- Use short cache timeouts for frequently updated modules
 
 ### Cache Configuration
 
