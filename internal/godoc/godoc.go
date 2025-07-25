@@ -65,7 +65,7 @@ type GoModuleInfo struct {
 //	}
 func NewGoDocRetriever(config *types.GoModuleConfig, cache CacheInterface) (*GoDocRetriever, error) {
 	if config == nil {
-		return nil, fmt.Errorf("Go module config cannot be nil")
+		return nil, fmt.Errorf("go module config cannot be nil")
 	}
 
 	if cache == nil {
@@ -401,13 +401,23 @@ func (g *GoDocRetriever) validateModulePath(modulePath string) error {
 // validateGoCommand checks if the go command is available and working.
 func (g *GoDocRetriever) validateGoCommand() error {
 	cmd := mock_execCommand("go", "version")
+	
+	if g.verbose {
+		log.Printf("[CMD] go version")
+	}
+	
 	output, err := cmd.Output()
 	if err != nil {
+		if g.verbose {
+			log.Printf("[CMD STDERR] %s", err.Error())
+		}
 		return fmt.Errorf("go command not available: %w", err)
 	}
 
 	if g.verbose {
-		log.Printf("Go version: %s", strings.TrimSpace(string(output)))
+		versionStr := strings.TrimSpace(string(output))
+		log.Printf("[CMD STDOUT] %s", versionStr)
+		log.Printf("Go version: %s", versionStr)
 	}
 
 	return nil

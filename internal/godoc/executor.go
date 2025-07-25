@@ -8,14 +8,80 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
 // ************************************************************************************************
+// executeCommandWithLogging wraps command execution with verbose logging.
+// It logs the command being executed and its stdout/stderr output when verbose mode is enabled.
+//
+// Returns:
+//   - stdout: Standard output from the command
+//   - stderr: Standard error from the command (if available separately)
+//   - error: Command execution error
+func (g *GoDocRetriever) executeCommandWithLogging(cmd *exec.Cmd, operation string) (stdout []byte, stderr []byte, err error) {
+	// Build command string for logging
+	cmdStr := cmd.Path
+	if len(cmd.Args) > 1 {
+		cmdStr = strings.Join(cmd.Args, " ")
+	}
+
+	if g.verbose {
+		log.Printf("[CMD] %s", cmdStr)
+	}
+
+	// Execute command and capture output
+	if cmd.Stderr == nil {
+		// Use CombinedOutput when stderr is not set separately
+		combined, err := cmd.CombinedOutput()
+
+		if g.verbose {
+			if err != nil {
+				// Command failed - log the combined output as stderr
+				log.Printf("[CMD STDERR] %s", strings.TrimSpace(string(combined)))
+			} else {
+				// Command succeeded - log as stdout
+				if len(combined) > 0 {
+					log.Printf("[CMD STDOUT] %s", strings.TrimSpace(string(combined)))
+				} else {
+					log.Printf("[CMD STDOUT] (no output)")
+				}
+			}
+		}
+
+		return combined, nil, err
+	} else {
+		// Use separate stdout/stderr when possible
+		stdout, err := cmd.Output()
+
+		if g.verbose {
+			if err != nil {
+				// Try to get stderr from ExitError
+				if exitError, ok := err.(*exec.ExitError); ok {
+					stderr = exitError.Stderr
+					log.Printf("[CMD STDERR] %s", strings.TrimSpace(string(stderr)))
+				} else {
+					log.Printf("[CMD STDERR] %s", err.Error())
+				}
+			}
+
+			if len(stdout) > 0 {
+				log.Printf("[CMD STDOUT] %s", strings.TrimSpace(string(stdout)))
+			} else {
+				log.Printf("[CMD STDOUT] (no output)")
+			}
+		}
+
+		return stdout, stderr, err
+	}
+}
+
+// ************************************************************************************************
 // executeGoCommands runs the complete sequence of Go commands to fetch module documentation.
-// This includes module initialization, getting the target module, vendoring, and documentation extraction.
+// This includes module initialization, getting the target module, and documentation extraction.
 //
 // Returns:
 //   - *GoModuleInfo: Complete module information with documentation.
@@ -45,15 +111,7 @@ func (g *GoDocRetriever) executeGoCommands(modulePath, tempDir string) (*GoModul
 	}
 	moduleInfo.Version = version
 
-	// Step 3: Vendor dependencies (optional, helps with some modules)
-	if err := g.vendorModule(tempDir); err != nil {
-		// Don't fail if vendoring fails, just log it
-		if g.verbose {
-			log.Printf("Warning: vendoring failed for %s: %v", modulePath, err)
-		}
-	}
-
-	// Step 4: Get Go version
+	// Step 3: Get Go version
 	goVersion, err := g.getGoVersion()
 	if err != nil {
 		if g.verbose {
@@ -63,14 +121,14 @@ func (g *GoDocRetriever) executeGoCommands(modulePath, tempDir string) (*GoModul
 		moduleInfo.GoVersion = goVersion
 	}
 
-	// Step 5: Extract basic documentation
+	// Step 4: Extract basic documentation
 	basicDocs, err := g.runGoDoc(modulePath, tempDir, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get basic documentation: %w", err)
 	}
 	moduleInfo.Documentation = basicDocs
 
-	// Step 6: Extract comprehensive documentation
+	// Step 5: Extract comprehensive documentation
 	allDocs, err := g.runGoDoc(modulePath, tempDir, true)
 	if err != nil {
 		// Don't fail if comprehensive docs fail, just log it
@@ -82,7 +140,7 @@ func (g *GoDocRetriever) executeGoCommands(modulePath, tempDir string) (*GoModul
 		moduleInfo.AllDocs = allDocs
 	}
 
-	// Step 7: Try to get package list
+	// Step 6: Try to get package list
 	packages, err := g.listPackages(modulePath, tempDir)
 	if err != nil {
 		if g.verbose {
@@ -112,9 +170,12 @@ func (g *GoDocRetriever) initGoModule(tempDir string) error {
 		log.Printf("Initializing Go module in %s", tempDir)
 	}
 
-	output, err := cmd.CombinedOutput()
+	stdout, stderr, err := g.executeCommandWithLogging(cmd, "go mod init")
 	if err != nil {
-		return fmt.Errorf("go mod init failed: %s", string(output))
+		if len(stderr) > 0 {
+			return fmt.Errorf("go mod init failed: %s", string(stderr))
+		}
+		return fmt.Errorf("go mod init failed: %s", string(stdout))
 	}
 
 	return nil
@@ -133,13 +194,16 @@ func (g *GoDocRetriever) getModule(modulePath, tempDir string) (string, error) {
 		log.Printf("Getting module: %s", modulePath)
 	}
 
-	output, err := cmd.CombinedOutput()
+	stdout, stderr, err := g.executeCommandWithLogging(cmd, "go get")
 	if err != nil {
-		return "", fmt.Errorf("go get %s failed: %s", modulePath, string(output))
+		if len(stderr) > 0 {
+			return "", fmt.Errorf("go get %s failed: %s", modulePath, string(stderr))
+		}
+		return "", fmt.Errorf("go get %s failed: %s", modulePath, string(stdout))
 	}
 
 	// Try to extract version from output
-	outputStr := string(output)
+	outputStr := string(stdout)
 	if strings.Contains(outputStr, "@") {
 		// Look for version information in the output
 		lines := strings.Split(outputStr, "\n")
@@ -157,33 +221,12 @@ func (g *GoDocRetriever) getModule(modulePath, tempDir string) (string, error) {
 }
 
 // ************************************************************************************************
-// vendorModule runs `go mod vendor` to vendor dependencies.
-func (g *GoDocRetriever) vendorModule(tempDir string) error {
-	ctx, cancel := g.createCommandContext()
-	defer cancel()
-
-	cmd := mock_execCommandContext(ctx, "go", "mod", "vendor")
-	cmd.Dir = tempDir
-
-	if g.verbose {
-		log.Printf("Vendoring dependencies in %s", tempDir)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go mod vendor failed: %s", string(output))
-	}
-
-	return nil
-}
-
-// ************************************************************************************************
 // runGoDoc executes `go doc` command to extract documentation.
 func (g *GoDocRetriever) runGoDoc(modulePath, tempDir string, allDocs bool) (string, error) {
 	ctx, cancel := g.createCommandContext()
 	defer cancel()
 
-	args := []string{"doc"}
+	args := []string{"go", "doc"}
 	if allDocs {
 		args = append(args, "-all")
 	}
@@ -201,14 +244,20 @@ func (g *GoDocRetriever) runGoDoc(modulePath, tempDir string, allDocs bool) (str
 		log.Printf("Running: %s %s", command, modulePath)
 	}
 
-	output, err := cmd.Output()
+	stdout, _, err := g.executeCommandWithLogging(cmd, "go doc")
 	if err != nil {
-		// Try alternative approaches if direct module path fails
+		// Log the failure and try alternative approaches
+		if g.verbose {
+			log.Printf("Direct go doc approach failed, trying alternatives...")
+		}
 		return g.tryAlternativeDocApproaches(modulePath, tempDir, allDocs)
 	}
 
-	result := strings.TrimSpace(string(output))
+	result := strings.TrimSpace(string(stdout))
 	if result == "" {
+		if g.verbose {
+			log.Printf("go doc returned empty output, trying alternatives...")
+		}
 		return g.tryAlternativeDocApproaches(modulePath, tempDir, allDocs)
 	}
 
@@ -221,12 +270,6 @@ func (g *GoDocRetriever) tryAlternativeDocApproaches(modulePath, tempDir string,
 	alternatives := []string{
 		modulePath,
 		filepath.Base(modulePath), // Just the package name
-	}
-
-	// If module path has vendor directory, try the vendored path
-	vendorPath := filepath.Join(tempDir, "vendor", modulePath)
-	if _, err := mock_osStat(vendorPath); err == nil {
-		alternatives = append(alternatives, "./vendor/"+modulePath)
 	}
 
 	for _, alt := range alternatives {
@@ -253,12 +296,12 @@ func (g *GoDocRetriever) runGoDocDirect(path, tempDir string, allDocs bool) (str
 	cmd := mock_execCommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = tempDir
 
-	output, err := cmd.Output()
+	stdout, _, err := g.executeCommandWithLogging(cmd, "go doc direct")
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(stdout)), nil
 }
 
 // ************************************************************************************************
@@ -274,13 +317,16 @@ func (g *GoDocRetriever) listPackages(modulePath, tempDir string) ([]string, err
 		log.Printf("Listing packages for: %s", modulePath)
 	}
 
-	output, err := cmd.Output()
+	stdout, _, err := g.executeCommandWithLogging(cmd, "go list")
 	if err != nil {
 		// Try simpler approach
+		if g.verbose {
+			log.Printf("go list with template failed, trying simple approach...")
+		}
 		return g.listPackagesSimple(modulePath, tempDir)
 	}
 
-	outputStr := strings.TrimSpace(string(output))
+	outputStr := strings.TrimSpace(string(stdout))
 	if outputStr == "" {
 		return []string{}, nil
 	}
@@ -306,12 +352,12 @@ func (g *GoDocRetriever) listPackagesSimple(modulePath, tempDir string) ([]strin
 	cmd := mock_execCommandContext(ctx, "go", "list", modulePath)
 	cmd.Dir = tempDir
 
-	output, err := cmd.Output()
+	stdout, _, err := g.executeCommandWithLogging(cmd, "go list simple")
 	if err != nil {
 		return []string{}, err
 	}
 
-	outputStr := strings.TrimSpace(string(output))
+	outputStr := strings.TrimSpace(string(stdout))
 	if outputStr == "" {
 		return []string{}, nil
 	}
@@ -327,12 +373,12 @@ func (g *GoDocRetriever) getGoVersion() (string, error) {
 
 	cmd := mock_execCommandContext(ctx, "go", "version")
 
-	output, err := cmd.Output()
+	stdout, _, err := g.executeCommandWithLogging(cmd, "go version")
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(string(output)), nil
+	return strings.TrimSpace(string(stdout)), nil
 }
 
 // ************************************************************************************************

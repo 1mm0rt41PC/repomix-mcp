@@ -234,17 +234,17 @@ var mock_osWriteFile = os.WriteFile  // internal\config\mock.go:15
 // Package: godoc
 // File: internal\godoc\executor.go
 
-func (*GoDocRetriever) createCommandContext() (context.Context, context.CancelFunc)  // internal\godoc\executor.go:340
-func (*GoDocRetriever) executeGoCommands(modulePath string, tempDir string) (*GoModuleInfo, error)  // internal\godoc\executor.go:23
-func (*GoDocRetriever) getGoVersion() (string, error)  // internal\godoc\executor.go:324
-func (*GoDocRetriever) getModule(modulePath string, tempDir string) (string, error)  // internal\godoc\executor.go:125
-func (*GoDocRetriever) initGoModule(tempDir string) error  // internal\godoc\executor.go:104
-func (*GoDocRetriever) listPackages(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:266
-func (*GoDocRetriever) listPackagesSimple(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:302
-func (*GoDocRetriever) runGoDoc(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:182
-func (*GoDocRetriever) runGoDocDirect(path string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:243
-func (*GoDocRetriever) tryAlternativeDocApproaches(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:220
-func (*GoDocRetriever) vendorModule(tempDir string) error  // internal\godoc\executor.go:161
+func (*GoDocRetriever) createCommandContext() (context.Context, context.CancelFunc)  // internal\godoc\executor.go:386
+func (*GoDocRetriever) executeCommandWithLogging(cmd *exec.Cmd, operation string) ([]byte, []byte, error)  // internal\godoc\executor.go:25
+func (*GoDocRetriever) executeGoCommands(modulePath string, tempDir string) (*GoModuleInfo, error)  // internal\godoc\executor.go:89
+func (*GoDocRetriever) getGoVersion() (string, error)  // internal\godoc\executor.go:370
+func (*GoDocRetriever) getModule(modulePath string, tempDir string) (string, error)  // internal\godoc\executor.go:186
+func (*GoDocRetriever) initGoModule(tempDir string) error  // internal\godoc\executor.go:162
+func (*GoDocRetriever) listPackages(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:309
+func (*GoDocRetriever) listPackagesSimple(modulePath string, tempDir string) ([]string, error)  // internal\godoc\executor.go:348
+func (*GoDocRetriever) runGoDoc(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:225
+func (*GoDocRetriever) runGoDocDirect(path string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:286
+func (*GoDocRetriever) tryAlternativeDocApproaches(modulePath string, tempDir string, allDocs bool) (string, error)  // internal\godoc\executor.go:269
 
 </file>
 
@@ -253,7 +253,7 @@ func (*GoDocRetriever) vendorModule(tempDir string) error  // internal\godoc\exe
 // File: internal\godoc\godoc.go
 
 var err error  // internal\godoc\godoc.go:192
-var formatted strings.Builder  // internal\godoc\godoc.go:451
+var formatted strings.Builder  // internal\godoc\godoc.go:461
 var moduleInfo *GoModuleInfo  // internal\godoc\godoc.go:190
 
 type GoDocRetriever struct {
@@ -287,15 +287,15 @@ func (*GoDocRetriever) CreateSyntheticRepository(modulePath string, info *GoModu
 func (*GoDocRetriever) GetOrRetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:222
 func (*GoDocRetriever) RetrieveDocumentation(modulePath string) (*GoModuleInfo, error)  // internal\godoc\godoc.go:170
 func (*GoDocRetriever) SetVerbose(verbose bool)  // internal\godoc\godoc.go:105
-func (*GoDocRetriever) cacheModuleInfo(modulePath string, info *GoModuleInfo) error  // internal\godoc\godoc.go:467
-func (*GoDocRetriever) calculateContentHash(content string) string  // internal\godoc\godoc.go:437
-func (*GoDocRetriever) formatDocumentation(command string, content string) string  // internal\godoc\godoc.go:450
+func (*GoDocRetriever) cacheModuleInfo(modulePath string, info *GoModuleInfo) error  // internal\godoc\godoc.go:477
+func (*GoDocRetriever) calculateContentHash(content string) string  // internal\godoc\godoc.go:447
+func (*GoDocRetriever) formatDocumentation(command string, content string) string  // internal\godoc\godoc.go:460
 func (*GoDocRetriever) getCacheKey(modulePath string) string  // internal\godoc\godoc.go:374
-func (*GoDocRetriever) isCacheValid(info *GoModuleInfo) bool  // internal\godoc\godoc.go:517
-func (*GoDocRetriever) parseRepositoryToModuleInfo(repo *types.RepositoryIndex) *GoModuleInfo  // internal\godoc\godoc.go:473
+func (*GoDocRetriever) isCacheValid(info *GoModuleInfo) bool  // internal\godoc\godoc.go:527
+func (*GoDocRetriever) parseRepositoryToModuleInfo(repo *types.RepositoryIndex) *GoModuleInfo  // internal\godoc\godoc.go:483
 func (*GoDocRetriever) validateGoCommand() error  // internal\godoc\godoc.go:402
 func (*GoDocRetriever) validateModulePath(modulePath string) error  // internal\godoc\godoc.go:379
-func (*GoDocRetriever) withTempDir(fn func(string) error) error  // internal\godoc\godoc.go:417
+func (*GoDocRetriever) withTempDir(fn func(string) error) error  // internal\godoc\godoc.go:427
 
 </file>
 
@@ -389,16 +389,16 @@ type mock_osFileInfo = os.FileInfo  // internal\indexer\mock.go:26
 // Package: mcp
 // File: internal\mcp\server.go
 
-var docs strings.Builder  // internal\mcp\server.go:887
+var docs strings.Builder  // internal\mcp\server.go:892
 var err error  // internal\mcp\server.go:535
 var errors []string  // internal\mcp\server.go:450
 var jsonRPCReq types.JSONRPCRequest  // internal\mcp\server.go:201
 var matches []string  // internal\mcp\server.go:800
 var message strings.Builder  // internal\mcp\server.go:482
-var otherFiles []types.IndexedFile  // internal\mcp\server.go:900
+var otherFiles []types.IndexedFile  // internal\mcp\server.go:905
 var params types.MCPToolCallParams  // internal\mcp\server.go:363
-var priorityFiles []types.IndexedFile  // internal\mcp\server.go:899
-var readmeFiles []types.IndexedFile  // internal\mcp\server.go:1052
+var priorityFiles []types.IndexedFile  // internal\mcp\server.go:904
+var readmeFiles []types.IndexedFile  // internal\mcp\server.go:1057
 var refreshedCount int  // internal\mcp\server.go:449
 var repo *types.RepositoryIndex  // internal\mcp\server.go:534
 var response strings.Builder  // internal\mcp\server.go:589
@@ -430,13 +430,13 @@ func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchIn
 
 func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:839
 func (*Server) Start() error  // internal\mcp\server.go:112
-func (*Server) Stop() error  // internal\mcp\server.go:1028
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1016
-func (*Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string  // internal\mcp\server.go:884
-func (*Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.IndexedFile  // internal\mcp\server.go:1051
+func (*Server) Stop() error  // internal\mcp\server.go:1033
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1021
+func (*Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int) string  // internal\mcp\server.go:889
+func (*Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.IndexedFile  // internal\mcp\server.go:1056
 func (*Server) findRepositoryMatches(libraryName string) []string  // internal\mcp\server.go:799
-func (*Server) getGoModuleDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:1148
-func (*Server) getRepositoryDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:844
+func (*Server) getGoModuleDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:1153
+func (*Server) getRepositoryDocs(libraryID string, topic string, tokens int) (string, error)  // internal\mcp\server.go:849
 func (*Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:658
 func (*Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:517
 func (*Server) handleHealth(w http.ResponseWriter, r *http.Request)  // internal\mcp\server.go:713
@@ -448,12 +448,12 @@ func (*Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments ma
 func (*Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, arguments map[string]interface{})  // internal\mcp\server.go:395
 func (*Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:359
 func (*Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest)  // internal\mcp\server.go:268
-func (*Server) isGoModuleEnabled() bool  // internal\mcp\server.go:1119
+func (*Server) isGoModuleEnabled() bool  // internal\mcp\server.go:1124
 func (*Server) parseParams(params interface{}, target interface{}) error  // internal\mcp\server.go:779
 func (*Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code int, message string, data interface{})  // internal\mcp\server.go:743
 func (*Server) sendJSONRPCResult(w http.ResponseWriter, id interface{}, result interface{})  // internal\mcp\server.go:728
 func (*Server) sendToolError(w http.ResponseWriter, id interface{}, message string)  // internal\mcp\server.go:763
-func (*Server) tryGoModuleFallback(libraryName string) (string, error)  // internal\mcp\server.go:1124
+func (*Server) tryGoModuleFallback(libraryName string) (string, error)  // internal\mcp\server.go:1129
 
 </file>
 
@@ -999,8 +999,8 @@ func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchIn
 
 func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:839
 func (*Server) Start() error  // internal\mcp\server.go:112
-func (*Server) Stop() error  // internal\mcp\server.go:1028
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1016
+func (*Server) Stop() error  // internal\mcp\server.go:1033
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1021
 
 </package>
 

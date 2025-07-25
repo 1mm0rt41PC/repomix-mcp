@@ -838,6 +838,11 @@ func (s *Server) findRepositoryMatches(libraryName string) []string {
 // SetVerbose sets the verbose logging mode for the server.
 func (s *Server) SetVerbose(verbose bool) {
 	s.verbose = verbose
+	
+	// Propagate verbose mode to GoDocRetriever if it exists
+	if s.goDocRetriever != nil {
+		s.goDocRetriever.SetVerbose(verbose)
+	}
 }
 
 // getRepositoryDocs retrieves documentation for a repository.
