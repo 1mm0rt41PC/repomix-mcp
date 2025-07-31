@@ -18,6 +18,7 @@ import (
 	"repomix-mcp/internal/config"
 	"repomix-mcp/internal/indexer"
 	"repomix-mcp/internal/mcp"
+	"repomix-mcp/internal/mcpclient"
 	"repomix-mcp/internal/repository"
 	"repomix-mcp/pkg/types"
 
@@ -223,13 +224,13 @@ func (app *Application) indexExpandedRepository(alias string, repoConfig *types.
 	if err = app.cache.StoreRepository(repoIndex); err != nil {
 		return fmt.Errorf("failed to store repository in cache\n>    %w", err)
 	}
-	
+
 	// Verbose logging for cache operations
 	if verbose {
 		data, _ := json.Marshal(repoIndex)
 		preview := app.cache.FormatValuePreview(data)
 		log.Printf("[CACHE] Stored key: repo:%s -> %s", repoIndex.ID, preview)
-		
+
 		// Log file-level storage if any files were indexed
 		for _, file := range repoIndex.Files {
 			fileData, _ := json.Marshal(file)
@@ -253,13 +254,13 @@ func (app *Application) indexExpandedRepository(alias string, repoConfig *types.
 //   - error: An error if server startup fails.
 func (app *Application) StartServer() error {
 	log.Println("Starting MCP server...")
-	
+
 	// Set verbose mode if enabled
 	if verbose {
 		app.mcpServer.SetVerbose(true)
 		log.Println("Verbose cache logging enabled for MCP server")
 	}
-	
+
 	return app.mcpServer.Start()
 }
 
@@ -397,35 +398,35 @@ func formatKeysTable(cacheInstance *cache.Cache, keys []string, verbose bool) er
 	if verbose {
 		fmt.Printf("%-50s %-10s %-15s %-20s %s\n", "KEY", "TYPE", "SIZE", "TTL", "PREVIEW")
 		fmt.Println(strings.Repeat("-", 120))
-		
+
 		for _, key := range keys {
 			info, err := cacheInstance.GetKeyInfo(key)
 			if err != nil {
 				fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, "ERROR", "-", "-", err.Error())
 				continue
 			}
-			
+
 			rawValue, err := cacheInstance.GetRawValue(key)
 			if err != nil {
 				fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, "ERROR", "-", "-", err.Error())
 				continue
 			}
-			
+
 			preview := cacheInstance.FormatValuePreview(rawValue)
 			keyType := info["type"].(string)
 			size := fmt.Sprintf("%d bytes", info["value_size"].(int))
-			
+
 			ttl := "-"
 			if info["ttl_seconds"] != nil {
 				ttl = fmt.Sprintf("%d sec", info["ttl_seconds"].(uint64))
 			}
-			
+
 			fmt.Printf("%-50s %-10s %-15s %-20s %s\n", key, keyType, size, ttl, preview)
 		}
 	} else {
 		fmt.Printf("%-50s %s\n", "KEY", "TYPE")
 		fmt.Println(strings.Repeat("-", 65))
-		
+
 		for _, key := range keys {
 			keyType := "unknown"
 			if strings.HasPrefix(key, "repo:") {
@@ -436,7 +437,7 @@ func formatKeysTable(cacheInstance *cache.Cache, keys []string, verbose bool) er
 			fmt.Printf("%-50s %s\n", key, keyType)
 		}
 	}
-	
+
 	fmt.Printf("\nTotal keys: %d\n", len(keys))
 	return nil
 }
@@ -455,22 +456,22 @@ func formatKeysJSON(cacheInstance *cache.Cache, keys []string, verbose bool) err
 				})
 				continue
 			}
-			
+
 			rawValue, err := cacheInstance.GetRawValue(key)
 			if err != nil {
 				info["preview_error"] = err.Error()
 			} else {
 				info["preview"] = cacheInstance.FormatValuePreview(rawValue)
 			}
-			
+
 			detailedKeys = append(detailedKeys, info)
 		}
-		
+
 		output := map[string]interface{}{
 			"keys":  detailedKeys,
 			"count": len(keys),
 		}
-		
+
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
@@ -490,19 +491,19 @@ func formatKeysJSON(cacheInstance *cache.Cache, keys []string, verbose bool) err
 				"type": keyType,
 			})
 		}
-		
+
 		output := map[string]interface{}{
 			"keys":  simpleKeys,
 			"count": len(keys),
 		}
-		
+
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
 		fmt.Println(string(data))
 	}
-	
+
 	return nil
 }
 
@@ -522,14 +523,14 @@ func getSpecificKeyContent(cacheInstance *cache.Cache, key, outputFormat string)
 	if err != nil {
 		return fmt.Errorf("failed to get content for key %s\n>    %w", key, err)
 	}
-	
+
 	switch outputFormat {
 	case "table":
 		info, err := cacheInstance.GetKeyInfo(key)
 		if err != nil {
 			return fmt.Errorf("failed to get key info: %w", err)
 		}
-		
+
 		fmt.Printf("Key: %s\n", key)
 		fmt.Printf("Type: %s\n", info["type"])
 		fmt.Printf("Size: %d bytes\n", info["value_size"])
@@ -540,32 +541,32 @@ func getSpecificKeyContent(cacheInstance *cache.Cache, key, outputFormat string)
 		}
 		fmt.Println(strings.Repeat("-", 50))
 		fmt.Println(string(rawValue))
-		
+
 	case "json":
 		info, err := cacheInstance.GetKeyInfo(key)
 		if err != nil {
 			return fmt.Errorf("failed to get key info: %w", err)
 		}
-		
+
 		output := map[string]interface{}{
 			"key":     key,
 			"info":    info,
 			"content": string(rawValue),
 		}
-		
+
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
 		fmt.Println(string(data))
-		
+
 	case "raw":
 		fmt.Print(string(rawValue))
-		
+
 	default:
 		return fmt.Errorf("invalid format: %s", outputFormat)
 	}
-	
+
 	return nil
 }
 
@@ -584,12 +585,12 @@ func getAllKeysContent(cacheInstance *cache.Cache, outputFormat, filter string) 
 	default:
 		return fmt.Errorf("invalid filter: %s (valid options: repo, file)", filter)
 	}
-	
+
 	keysWithValues, err := cacheInstance.GetAllKeysWithValues(prefix)
 	if err != nil {
 		return fmt.Errorf("failed to get keys with values\n>    %w", err)
 	}
-	
+
 	switch outputFormat {
 	case "table":
 		for key, value := range keysWithValues {
@@ -597,7 +598,7 @@ func getAllKeysContent(cacheInstance *cache.Cache, outputFormat, filter string) 
 			fmt.Printf("%s\n\t%s\n\n", key, preview)
 		}
 		fmt.Printf("Total keys: %d\n", len(keysWithValues))
-		
+
 	case "json":
 		output := make(map[string]interface{})
 		for key, value := range keysWithValues {
@@ -607,27 +608,27 @@ func getAllKeysContent(cacheInstance *cache.Cache, outputFormat, filter string) 
 				"content": string(value),
 			}
 		}
-		
+
 		result := map[string]interface{}{
 			"keys":  output,
 			"count": len(keysWithValues),
 		}
-		
+
 		data, err := json.MarshalIndent(result, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
 		fmt.Println(string(data))
-		
+
 	case "raw":
 		for key, value := range keysWithValues {
 			fmt.Printf("%s\n\t%s\n\n", key, string(value))
 		}
-		
+
 	default:
 		return fmt.Errorf("invalid format: %s", outputFormat)
 	}
-	
+
 	return nil
 }
 
@@ -845,6 +846,115 @@ Examples:
 }
 
 // ************************************************************************************************
+// clientCmd represents the client command
+var clientCmd = &cobra.Command{
+	Use:   "client",
+	Short: "MCP client for connecting to and interacting with MCP servers",
+	Long: `Connect to MCP servers and execute tools through the Model Context Protocol.
+
+The client supports discovering available tools and executing them with arguments.
+
+Examples:
+  repomix-mcp client --mcp-srv 127.0.0.1:9080 --mcp-list              # List available tools
+  repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=golang"
+  repomix-mcp client --mcp-srv https://server.com:443 --mcp-list --verbose`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runClientCommand(cmd, args)
+	},
+}
+
+// ************************************************************************************************
+// runClientCommand executes the client command logic.
+func runClientCommand(cmd *cobra.Command, args []string) error {
+	// Create MCP client
+	client, err := mcpclient.NewClient(mcpServerAddress)
+	if err != nil {
+		return fmt.Errorf("failed to create MCP client: %w", err)
+	}
+
+	// Set verbose mode
+	client.SetVerbose(verbose)
+
+	// Connect to server
+	if err := client.Connect(); err != nil {
+		return fmt.Errorf("failed to connect to MCP server: %w", err)
+	}
+	defer client.Close()
+
+	if verbose {
+		fmt.Println(mcpclient.FormatConnectionInfo(mcpServerAddress, true))
+	}
+
+	// Handle list tools request
+	if mcpListTools {
+		return handleListTools(client)
+	}
+
+	// Handle tool execution request
+	if mcpToolName != "" {
+		return handleToolExecution(client, mcpToolName, mcpToolArgs)
+	}
+
+	// If neither list nor execute, show help
+	return cmd.Help()
+}
+
+// ************************************************************************************************
+// handleListTools lists available tools from the MCP server.
+func handleListTools(client *mcpclient.Client) error {
+	tools, err := client.ListTools()
+	if err != nil {
+		return fmt.Errorf("failed to list tools: %w", err)
+	}
+
+	// Format output
+	outputFormat := mcpclient.OutputFormat(format)
+	output, err := mcpclient.FormatToolsList(tools, outputFormat)
+	if err != nil {
+		return fmt.Errorf("failed to format tools list: %w", err)
+	}
+
+	fmt.Print(output)
+	return nil
+}
+
+// ************************************************************************************************
+// handleToolExecution executes a specific tool with provided arguments.
+func handleToolExecution(client *mcpclient.Client, toolName, argsString string) error {
+	// Parse arguments
+	args, err := mcpclient.ParseArguments(argsString)
+	if err != nil {
+		return fmt.Errorf("failed to parse tool arguments: %w", err)
+	}
+
+	if verbose {
+		log.Printf("Executing tool '%s' with arguments: %+v", toolName, args)
+	}
+
+	// Execute tool
+	result, err := client.CallTool(toolName, args)
+	if err != nil {
+		return fmt.Errorf("failed to execute tool: %w", err)
+	}
+
+	// Format output
+	outputFormat := mcpclient.OutputFormat(format)
+	output, err := mcpclient.FormatToolResult(toolName, result, outputFormat)
+	if err != nil {
+		return fmt.Errorf("failed to format tool result: %w", err)
+	}
+
+	fmt.Print(output)
+
+	// Return error if tool execution failed
+	if result.IsError {
+		return fmt.Errorf("tool execution failed")
+	}
+
+	return nil
+}
+
+// ************************************************************************************************
 // Global flags
 var (
 	configFile string
@@ -852,6 +962,12 @@ var (
 	verbose    bool
 	format     string
 	filter     string
+
+	// MCP client flags
+	mcpServerAddress string
+	mcpListTools     bool
+	mcpToolName      string
+	mcpToolArgs      string
 )
 
 func init() {
@@ -872,11 +988,20 @@ func init() {
 	indexCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed cache operations during indexing")
 	serveCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed cache operations during serving")
 
+	// Add MCP client command flags
+	clientCmd.Flags().StringVar(&mcpServerAddress, "mcp-srv", "127.0.0.1:9080", "MCP server address (e.g., 127.0.0.1:9080 or https://server.com:9443)")
+	clientCmd.Flags().BoolVar(&mcpListTools, "mcp-list", false, "list available tools from the MCP server")
+	clientCmd.Flags().StringVar(&mcpToolName, "mcp-use", "", "tool name to execute")
+	clientCmd.Flags().StringVar(&mcpToolArgs, "mcp-args", "", "tool arguments in 'key=value,key2=value2' format")
+	clientCmd.Flags().StringVar(&format, "format", "json", "output format (json, table, raw)")
+	clientCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "show detailed connection and execution information")
+
 	// Add subcommands
 	rootCmd.AddCommand(indexCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(validateCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(clientCmd)
 	rootCmd.AddCommand(listKeysCmd)
 	rootCmd.AddCommand(getContentCmd)
 
@@ -913,7 +1038,12 @@ func main() {
 		if cmd.Name() == "example" {
 			return nil
 		}
-		
+
+		// Skip initialization for MCP client command (it's independent)
+		if cmd.Name() == "client" {
+			return nil
+		}
+
 		// Skip initialization for cache inspection commands when using direct db-path
 		if (cmd.Name() == "listkeys" || cmd.Name() == "getcontent") && dbPath != "" {
 			return nil

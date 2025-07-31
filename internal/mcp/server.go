@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"repomix-mcp/pkg/types"
 	"repomix-mcp/internal/godoc"
+	"repomix-mcp/pkg/types"
 )
 
 // ************************************************************************************************
@@ -30,10 +30,10 @@ type Server struct {
 	searchEngine SearchInterface
 	repositories map[string]*types.RepositoryIndex
 	verbose      bool
-	
+
 	// Go module documentation retriever
 	goDocRetriever *godoc.GoDocRetriever
-	
+
 	// Server management
 	httpServer  *http.Server
 	httpsServer *http.Server
@@ -136,13 +136,13 @@ func (s *Server) Start() error {
 	// Start HTTPS server if enabled
 	if s.config.Server.HTTPSEnabled {
 		httpsAddress := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.HTTPSPort)
-		
+
 		// Load or generate TLS configuration
 		hosts := []string{s.config.Server.Host}
 		if s.config.Server.Host != "localhost" {
 			hosts = append(hosts, "localhost", "127.0.0.1", "::1")
 		}
-		
+
 		tlsConfig, err := LoadTLSConfig(s.config.Server.CertPath, s.config.Server.KeyPath, s.config.Server.AutoGenCert, hosts)
 		if err != nil {
 			return fmt.Errorf("failed to configure TLS: %w", err)
@@ -156,7 +156,7 @@ func (s *Server) Start() error {
 
 		log.Printf("Starting HTTPS MCP server on %s", httpsAddress)
 		log.Printf("HTTPS MCP endpoint available at: https://%s/mcp", httpsAddress)
-		
+
 		if s.config.Server.AutoGenCert {
 			log.Printf("Using auto-generated self-signed certificate")
 			log.Printf("Certificate: %s", s.config.Server.CertPath)
@@ -236,7 +236,7 @@ func (s *Server) handleMCPEndpoint(w http.ResponseWriter, r *http.Request) {
 // handleInitialize handles the MCP initialize request.
 func (s *Server) handleInitialize(w http.ResponseWriter, req types.JSONRPCRequest) {
 	log.Printf("Handling initialize request")
-	
+
 	result := types.MCPInitializeResult{
 		ProtocolVersion: "2024-11-05",
 		Capabilities: map[string]interface{}{
@@ -257,7 +257,7 @@ func (s *Server) handleInitialize(w http.ResponseWriter, req types.JSONRPCReques
 // handleInitialized handles the MCP initialized notification.
 func (s *Server) handleInitialized(w http.ResponseWriter, req types.JSONRPCRequest) {
 	log.Printf("Handling initialized notification")
-	
+
 	// For notifications (no ID), we don't send a JSON-RPC response
 	// Just return HTTP 202 Accepted
 	w.WriteHeader(http.StatusAccepted)
@@ -267,17 +267,22 @@ func (s *Server) handleInitialized(w http.ResponseWriter, req types.JSONRPCReque
 // handleToolsList handles the tools/list request.
 func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest) {
 	log.Printf("Handling tools/list request")
-	
+
 	tools := []types.MCPTool{
 		{
 			Name:        "resolve-library-id",
-			Description: "Resolves a general library name into a repository ID",
+			Description: "Resolves a general library name into a repository ID. If exactly one match is found, automatically includes the documentation content (public/exported data only).",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"libraryName": map[string]interface{}{
 						"type":        "string",
 						"description": "The name of the library to search for",
+					},
+					"tokens": map[string]interface{}{
+						"type":        "number",
+						"description": "Maximum number of tokens to return for auto-included content (only applies when exactly one match is found)",
+						"default":     10000,
 					},
 				},
 				"required": []string{"libraryName"},
@@ -289,7 +294,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"context7CompatibleLibraryID": map[string]interface{}{
+					"library-id": map[string]interface{}{
 						"type":        "string",
 						"description": "Repository ID from resolve-library-id",
 					},
@@ -308,7 +313,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 						"default":     false,
 					},
 				},
-				"required": []string{"context7CompatibleLibraryID"},
+				"required": []string{"library-id"},
 			},
 		},
 		{
@@ -336,7 +341,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"context7CompatibleLibraryID": map[string]interface{}{
+					"library-id": map[string]interface{}{
 						"type":        "string",
 						"description": "Repository ID from resolve-library-id",
 					},
@@ -347,7 +352,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 						"enum":        []string{"text", "markdown"},
 					},
 				},
-				"required": []string{"context7CompatibleLibraryID"},
+				"required": []string{"library-id"},
 			},
 		},
 	}
@@ -363,7 +368,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req types.JSONRPCRequest
 // handleToolsCall handles the tools/call request.
 func (s *Server) handleToolsCall(w http.ResponseWriter, req types.JSONRPCRequest) {
 	log.Printf("Handling tools/call request")
-	
+
 	// Parse parameters
 	var params types.MCPToolCallParams
 	if err := s.parseParams(req.Params, &params); err != nil {
@@ -405,11 +410,31 @@ func (s *Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, a
 		return
 	}
 
-	log.Printf("Resolving library: %s", libraryName)
+	// Extract optional tokens parameter (only used for single match auto-content)
+	tokens := 10000 // Default value
+	if tokensParam, exists := arguments["tokens"]; exists {
+		switch v := tokensParam.(type) {
+		case float64:
+			tokens = int(v)
+		case int:
+			tokens = v
+		case string:
+			if parsed, err := strconv.Atoi(v); err == nil {
+				tokens = parsed
+			}
+		}
+	}
+
+	// Ensure minimum token count
+	if tokens < 1000 {
+		tokens = 1000
+	}
+
+	log.Printf("Resolving library: %s (tokens=%d)", libraryName, tokens)
 
 	// Find matching repositories
 	matches := s.findRepositoryMatches(libraryName)
-	
+
 	// If no matches found, try Go module fallback
 	if len(matches) == 0 && s.isGoModuleEnabled() {
 		if godoc.IsGoModulePath(libraryName) {
@@ -421,19 +446,63 @@ func (s *Server) handleResolveLibraryID(w http.ResponseWriter, id interface{}, a
 			}
 		}
 	}
-	
+
 	if len(matches) == 0 {
 		s.sendToolError(w, id, fmt.Sprintf("No repository found for library: %s", libraryName))
 		return
 	}
 
-	// Return the best match as text content
-	bestMatch := matches[0]
+	// Enhanced behavior: if exactly one match, include documentation content
+	if len(matches) == 1 {
+		bestMatch := matches[0]
+		log.Printf("Single match found for library '%s': %s - including documentation content (public/exported only)", libraryName, bestMatch)
+
+		// Get documentation content for the single match (public/exported data only)
+		docs, err := s.getRepositoryDocs(bestMatch, "", tokens, false) // includeNonExported=false
+		if err != nil {
+			log.Printf("Warning: failed to get documentation for %s: %v", bestMatch, err)
+			// Fall back to just returning the ID
+			result := types.MCPToolCallResult{
+				Content: []types.MCPContent{
+					{
+						Type: "text",
+						Text: bestMatch,
+					},
+				},
+				IsError: false,
+			}
+			s.sendJSONRPCResult(w, id, result)
+			return
+		}
+
+		// Return both the ID and the documentation content
+		result := types.MCPToolCallResult{
+			Content: []types.MCPContent{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Repository ID: %s\n\n%s", bestMatch, docs),
+				},
+			},
+			IsError: false,
+		}
+		s.sendJSONRPCResult(w, id, result)
+		return
+	}
+
+	// Multiple matches: return list of IDs (original behavior)
+	log.Printf("Multiple matches found for library '%s': %v", libraryName, matches)
+	var matchList strings.Builder
+	matchList.WriteString(fmt.Sprintf("Multiple repositories found for '%s':\n\n", libraryName))
+	for i, match := range matches {
+		matchList.WriteString(fmt.Sprintf("%d. %s\n", i+1, match))
+	}
+	matchList.WriteString(fmt.Sprintf("\nUse get-library-docs with one of these IDs to retrieve documentation."))
+
 	result := types.MCPToolCallResult{
 		Content: []types.MCPContent{
 			{
 				Type: "text",
-				Text: bestMatch,
+				Text: matchList.String(),
 			},
 		},
 		IsError: false,
@@ -448,17 +517,17 @@ func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments 
 	// Extract optional parameters
 	repositoryID, _ := arguments["repositoryID"].(string)
 	force, _ := arguments["force"].(bool)
-	
+
 	log.Printf("Handling refresh: repositoryID=%s, force=%v", repositoryID, force)
-	
+
 	var refreshedCount int
 	var errors []string
-	
+
 	if s.cache == nil {
 		s.sendToolError(w, id, "Cache not available")
 		return
 	}
-	
+
 	if repositoryID != "" {
 		// Refresh specific repository
 		err := s.cache.InvalidateRepository(repositoryID)
@@ -482,7 +551,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments 
 			log.Printf("Refreshed all repository caches")
 		}
 	}
-	
+
 	// Build response message
 	var message strings.Builder
 	if refreshedCount > 0 {
@@ -492,18 +561,18 @@ func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments 
 			message.WriteString(fmt.Sprintf("Successfully refreshed %d repositories", refreshedCount))
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		if message.Len() > 0 {
 			message.WriteString("\n\nErrors encountered:\n")
 		}
 		message.WriteString(strings.Join(errors, "\n"))
 	}
-	
+
 	if refreshedCount == 0 && len(errors) == 0 {
 		message.WriteString("No repositories found to refresh")
 	}
-	
+
 	result := types.MCPToolCallResult{
 		Content: []types.MCPContent{
 			{
@@ -513,7 +582,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments 
 		},
 		IsError: len(errors) > 0 && refreshedCount == 0,
 	}
-	
+
 	s.sendJSONRPCResult(w, id, result)
 }
 
@@ -521,24 +590,24 @@ func (s *Server) handleRefresh(w http.ResponseWriter, id interface{}, arguments 
 // handleGetReadme handles the get-readme tool for README extraction.
 func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, arguments map[string]interface{}) {
 	// Extract library ID
-	libraryID, ok := arguments["context7CompatibleLibraryID"].(string)
+	libraryID, ok := arguments["library-id"].(string)
 	if !ok || libraryID == "" {
-		s.sendToolError(w, id, "context7CompatibleLibraryID parameter is required and must be a string")
+		s.sendToolError(w, id, "library-id parameter is required and must be a string")
 		return
 	}
-	
+
 	// Extract optional format parameter
 	format, _ := arguments["format"].(string)
 	if format == "" {
 		format = "markdown"
 	}
-	
+
 	log.Printf("Getting README: id=%s, format=%s", libraryID, format)
-	
+
 	// Get repository from cache
 	var repo *types.RepositoryIndex
 	var err error
-	
+
 	if s.cache != nil {
 		repo, err = s.cache.GetRepository(libraryID)
 		if err != nil {
@@ -559,20 +628,20 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 			return
 		}
 	}
-	
+
 	// Look for README files from all subfolders
 	readmeFiles := s.findAllReadmeFiles(repo)
-	
+
 	if len(readmeFiles) == 0 {
 		s.sendToolError(w, id, fmt.Sprintf("No README files found in repository: %s", libraryID))
 		return
 	}
-	
+
 	// Use the first (highest priority) README file for single file response
 	// Priority order: root → shallow subfolders → deeper subfolders
 	readmeFile := &readmeFiles[0]
 	readmePath := readmeFile.Path
-	
+
 	// Format the content based on requested format
 	content := readmeFile.Content
 	if format == "text" && strings.HasSuffix(strings.ToLower(readmePath), ".md") {
@@ -589,10 +658,10 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 		}
 		content = strings.Join(lines, "\n")
 	}
-	
+
 	// Build response with multiple README files if available
 	var response strings.Builder
-	
+
 	if len(readmeFiles) == 1 {
 		// Single README file response
 		response.WriteString(fmt.Sprintf("# README from %s\n\n", libraryID))
@@ -606,18 +675,18 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 		// Multiple README files response
 		response.WriteString(fmt.Sprintf("# README Files from %s\n\n", libraryID))
 		response.WriteString(fmt.Sprintf("Found %d README files in repository.\n\n", len(readmeFiles)))
-		
+
 		for i, file := range readmeFiles {
 			folderPath := filepath.Dir(file.Path)
 			if folderPath == "." {
 				folderPath = "(root)"
 			}
-			
+
 			response.WriteString(fmt.Sprintf("## README %d: %s\n", i+1, folderPath))
 			response.WriteString(fmt.Sprintf("**File:** %s\n", file.Path))
 			response.WriteString(fmt.Sprintf("**Size:** %d bytes\n", file.Size))
 			response.WriteString(fmt.Sprintf("**Language:** %s\n\n", file.Language))
-			
+
 			// Format content for this README
 			fileContent := file.Content
 			if format == "text" && strings.HasSuffix(strings.ToLower(file.Path), ".md") {
@@ -634,17 +703,17 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 				}
 				fileContent = strings.Join(lines, "\n")
 			}
-			
+
 			response.WriteString("```\n")
 			response.WriteString(fileContent)
 			response.WriteString("\n```\n\n")
-			
+
 			if i < len(readmeFiles)-1 {
 				response.WriteString("---\n\n")
 			}
 		}
 	}
-	
+
 	result := types.MCPToolCallResult{
 		Content: []types.MCPContent{
 			{
@@ -654,7 +723,7 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 		},
 		IsError: false,
 	}
-	
+
 	s.sendJSONRPCResult(w, id, result)
 }
 
@@ -662,16 +731,16 @@ func (s *Server) handleGetReadme(w http.ResponseWriter, id interface{}, argument
 // handleGetLibraryDocs handles the get-library-docs tool.
 func (s *Server) handleGetLibraryDocs(w http.ResponseWriter, id interface{}, arguments map[string]interface{}) {
 	// Extract library ID
-	libraryID, ok := arguments["context7CompatibleLibraryID"].(string)
+	libraryID, ok := arguments["library-id"].(string)
 	if !ok || libraryID == "" {
-		s.sendToolError(w, id, "context7CompatibleLibraryID parameter is required and must be a string")
+		s.sendToolError(w, id, "library-id parameter is required and must be a string")
 		return
 	}
 
 	// Extract optional parameters
 	topic, _ := arguments["topic"].(string)
 	includeNonExported, _ := arguments["includeNonExported"].(bool)
-	
+
 	// Handle tokens parameter (can be number or string)
 	tokens := 10000 // Default value
 	if tokensParam, exists := arguments["tokens"]; exists {
@@ -804,7 +873,7 @@ func (s *Server) parseParams(params interface{}, target interface{}) error {
 // findRepositoryMatches finds repositories matching a library name.
 func (s *Server) findRepositoryMatches(libraryName string) []string {
 	var matches []string
-	
+
 	// Get repositories from cache
 	if s.cache != nil {
 		repoIDs, err := s.cache.ListRepositories()
@@ -844,7 +913,7 @@ func (s *Server) findRepositoryMatches(libraryName string) []string {
 // SetVerbose sets the verbose logging mode for the server.
 func (s *Server) SetVerbose(verbose bool) {
 	s.verbose = verbose
-	
+
 	// Propagate verbose mode to GoDocRetriever if it exists
 	if s.goDocRetriever != nil {
 		s.goDocRetriever.SetVerbose(verbose)
@@ -894,13 +963,13 @@ func (s *Server) getRepositoryDocs(libraryID, topic string, tokens int, includeN
 // extractDocumentation extracts and formats documentation from a repository.
 func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string, tokens int, includeNonExported bool) string {
 	log.Printf("Starting extractDocumentation: repo=%s, topic='%s', tokens=%d, includeNonExported=%v", repo.Name, topic, tokens, includeNonExported)
-	
+
 	// Note: includeNonExported only affects the initial XML generation by the Go parser,
 	// not the filtering at this extraction stage. The XML content already reflects
 	// the includeNonExported setting used during repository indexing.
-	
+
 	var docs strings.Builder
-	
+
 	// Add repository header
 	docs.WriteString(fmt.Sprintf("# Repository: %s\n\n", repo.Name))
 	docs.WriteString(fmt.Sprintf("**Path:** %s\n", repo.Path))
@@ -923,10 +992,10 @@ func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string,
 		// Prioritize documentation files
 		fileName := strings.ToLower(file.Path)
 		if strings.Contains(fileName, "readme") ||
-		   strings.Contains(fileName, "doc") ||
-		   strings.HasSuffix(fileName, ".md") ||
-		   strings.Contains(fileName, "changelog") ||
-		   strings.Contains(fileName, "license") {
+			strings.Contains(fileName, "doc") ||
+			strings.HasSuffix(fileName, ".md") ||
+			strings.Contains(fileName, "changelog") ||
+			strings.Contains(fileName, "license") {
 			priorityFiles = append(priorityFiles, file)
 		} else {
 			otherFiles = append(otherFiles, file)
@@ -938,24 +1007,24 @@ func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string,
 	// Add priority files first
 	currentTokens := len(docs.String())
 	log.Printf("Initial token count: %d", currentTokens)
-	
+
 	for i, file := range priorityFiles {
 		log.Printf("Processing priority file %d/%d: %s (content length: %d)", i+1, len(priorityFiles), file.Path, len(file.Content))
-		
+
 		if currentTokens >= tokens {
 			log.Printf("Token limit reached, skipping remaining priority files")
 			break
 		}
-		
+
 		docs.WriteString(fmt.Sprintf("\n## File: %s\n\n", file.Path))
-		
+
 		// Safe truncation with bounds checking
 		content := file.Content
 		contentLength := len(content)
 		remainingTokens := tokens - currentTokens
-		
+
 		log.Printf("Token calculation: current=%d, remaining=%d, content=%d", currentTokens, remainingTokens, contentLength)
-		
+
 		if contentLength > remainingTokens {
 			// Calculate safe truncation point
 			truncateLength := remainingTokens - 100 // Reserve 100 chars for truncation message
@@ -966,11 +1035,11 @@ func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string,
 			if truncateLength > contentLength {
 				truncateLength = contentLength
 			}
-			
+
 			log.Printf("Truncating content from %d to %d characters", contentLength, truncateLength)
 			content = content[:truncateLength] + "\n\n[Content truncated...]"
 		}
-		
+
 		docs.WriteString(content)
 		docs.WriteString("\n")
 		currentTokens = len(docs.String())
@@ -980,21 +1049,21 @@ func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string,
 	// Add other files if we still have token budget
 	for i, file := range otherFiles {
 		log.Printf("Processing other file %d/%d: %s (content length: %d)", i+1, len(otherFiles), file.Path, len(file.Content))
-		
+
 		if currentTokens >= tokens {
 			log.Printf("Token limit reached, skipping remaining other files")
 			break
 		}
-		
+
 		docs.WriteString(fmt.Sprintf("\n## File: %s\n\n", file.Path))
-		
+
 		// Safe truncation with bounds checking
 		content := file.Content
 		contentLength := len(content)
 		remainingTokens := tokens - currentTokens
-		
+
 		log.Printf("Token calculation: current=%d, remaining=%d, content=%d", currentTokens, remainingTokens, contentLength)
-		
+
 		if contentLength > remainingTokens {
 			// Calculate safe truncation point
 			truncateLength := remainingTokens - 100 // Reserve 100 chars for truncation message
@@ -1005,11 +1074,11 @@ func (s *Server) extractDocumentation(repo *types.RepositoryIndex, topic string,
 			if truncateLength > contentLength {
 				truncateLength = contentLength
 			}
-			
+
 			log.Printf("Truncating content from %d to %d characters", contentLength, truncateLength)
 			content = content[:truncateLength] + "\n\n[Content truncated...]"
 		}
-		
+
 		docs.WriteString(content)
 		docs.WriteString("\n")
 		currentTokens = len(docs.String())
@@ -1065,14 +1134,14 @@ func (s *Server) Stop() error {
 // It returns README files sorted by priority: root → shallow → deeper subfolders.
 func (s *Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.IndexedFile {
 	var readmeFiles []types.IndexedFile
-	
+
 	// Find all files marked as README type
 	for _, file := range repo.Files {
 		if fileType, exists := file.Metadata["file_type"]; exists && fileType == "readme" {
 			readmeFiles = append(readmeFiles, file)
 		}
 	}
-	
+
 	// If no files have the metadata, fall back to pattern matching
 	if len(readmeFiles) == 0 {
 		readmePatterns := []string{
@@ -1083,7 +1152,7 @@ func (s *Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.Indexed
 			"README.adoc", "readme.adoc", "Readme.adoc",
 			"README.org", "readme.org", "Readme.org",
 		}
-		
+
 		for filePath, file := range repo.Files {
 			fileName := filepath.Base(filePath)
 			for _, pattern := range readmePatterns {
@@ -1094,36 +1163,36 @@ func (s *Server) findAllReadmeFiles(repo *types.RepositoryIndex) []types.Indexed
 			}
 		}
 	}
-	
+
 	// Sort by priority: root first, then by folder depth, then alphabetically
 	sort.Slice(readmeFiles, func(i, j int) bool {
 		fileI := readmeFiles[i]
 		fileJ := readmeFiles[j]
-		
+
 		// Get folder depths
 		depthI := strings.Count(fileI.Path, string(filepath.Separator))
 		depthJ := strings.Count(fileJ.Path, string(filepath.Separator))
-		
+
 		// Root files (depth 0) have highest priority
 		if depthI != depthJ {
 			return depthI < depthJ
 		}
-		
+
 		// Same depth: prefer .md files, then alphabetical
 		extI := strings.ToLower(filepath.Ext(fileI.Path))
 		extJ := strings.ToLower(filepath.Ext(fileJ.Path))
-		
+
 		if extI == ".md" && extJ != ".md" {
 			return true
 		}
 		if extI != ".md" && extJ == ".md" {
 			return false
 		}
-		
+
 		// Alphabetical by path
 		return fileI.Path < fileJ.Path
 	})
-	
+
 	return readmeFiles
 }
 

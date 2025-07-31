@@ -3,7 +3,7 @@
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/doc/go1.24)
 [![Coverage](https://img.shields.io/badge/Coverage-0%25-red.svg)](coverage.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.0.0-blue.svg)](https://github.com/1mm0rt41PC/repomix-mcp/releases)
+[![Version](https://img.shields.io/badge/version-v2.1.0-blue.svg)](https://github.com/1mm0rt41PC/repomix-mcp/releases)
 [![Windows](https://img.shields.io/badge/Windows-Compatible-success.svg)](https://github.com/1mm0rt41PC/repomix-mcp)
 [![Linux](https://img.shields.io/badge/Linux-Compatible-success.svg)](https://github.com/1mm0rt41PC/repomix-mcp)
 
@@ -28,6 +28,9 @@ Repomix-MCP bridges the gap between your private repositories and AI tools by pr
 - 🛡️ **Secure Authentication**: Support for SSH keys and access tokens
 - ⚡ **Fast Caching**: BadgerDB storage for quick content retrieval
 - 🔌 **MCP Integration**: Standard Model Context Protocol for AI tool compatibility
+- 📱 **Independent MCP Client**: Built-in command-line client for testing and interaction
+- 🎨 **Colorized JSON Output**: Syntax highlighting for improved readability
+- 🧠 **Smart Auto-Content**: Automatic documentation inclusion for single-match resolutions
 - 📊 **Comprehensive Logging**: Detailed logging and error reporting
 - 🔧 **Flexible Configuration**: Support for multiple repository types and indexing rules
 - 🎯 **Smart Go Analysis**: Advanced Go AST parsing with configurable export filtering (`includeNonExported`)
@@ -434,9 +437,14 @@ Add this to your MCP configuration:
 
 ### Available Tools
 
-#### resolve-library-id
+#### resolve-library-id (Enhanced)
 
-Resolves a general library name into a repository ID.
+**Enhanced Tool**: Resolves a general library name into a repository ID. **New**: If exactly one match is found, automatically includes the full documentation content (public/exported data only).
+
+**Smart Behavior:**
+- **Multiple matches**: Returns numbered list of repository IDs
+- **Single match**: Returns repository ID + complete documentation content
+- **No matches**: Returns error message
 
 **Input Schema:**
 ```json
@@ -446,13 +454,18 @@ Resolves a general library name into a repository ID.
     "libraryName": {
       "type": "string",
       "description": "The name of the library to search for"
+    },
+    "tokens": {
+      "type": "number",
+      "description": "Maximum number of tokens to return for auto-included content (only applies when exactly one match is found)",
+      "default": 10000
     }
   },
   "required": ["libraryName"]
 }
 ```
 
-**Example Response:**
+**Example Response (Multiple Matches):**
 ```json
 {
   "jsonrpc": "2.0",
@@ -461,7 +474,24 @@ Resolves a general library name into a repository ID.
     "content": [
       {
         "type": "text",
-        "text": "auth-service"
+        "text": "Multiple repositories found for 'auth':\n\n1. auth-service\n2. auth-lib\n3. oauth-gateway\n\nUse get-library-docs with one of these IDs to retrieve documentation."
+      }
+    ],
+    "isError": false
+  }
+}
+```
+
+**Example Response (Single Match with Auto-Content):**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Repository ID: auth-service\n\n# Repository: auth-service\n\n**Path:** /path/to/auth\n**Last Updated:** 2024-01-31 14:35:00\n\n## File: README.md\n\n# Authentication Service\n\nThis service handles JWT authentication...\n\n## File: main.go\n\npackage main\n\nimport (\n    \"github.com/gin-gonic/gin\"\n)\n\n// StartServer initializes the HTTP server\nfunc StartServer() {\n    // Implementation details...\n}\n\n[Full documentation content continues...]"
       }
     ],
     "isError": false
@@ -478,7 +508,7 @@ Fetches documentation for a repository using its ID.
 {
   "type": "object",
   "properties": {
-    "context7CompatibleLibraryID": {
+    "library-id": {
       "type": "string",
       "description": "Repository ID from resolve-library-id"
     },
@@ -497,7 +527,7 @@ Fetches documentation for a repository using its ID.
       "default": false
     }
   },
-  "required": ["context7CompatibleLibraryID"]
+  "required": ["library-id"]
 }
 ```
 
@@ -522,7 +552,7 @@ The `includeNonExported` parameter controls the level of detail in Go project do
 {
   "name": "get-library-docs",
   "arguments": {
-    "context7CompatibleLibraryID": "gomod:github.com/sirupsen/logrus",
+    "library-id": "gomod:github.com/sirupsen/logrus",
     "includeNonExported": false,
     "tokens": 8000
   }
@@ -532,7 +562,7 @@ The `includeNonExported` parameter controls the level of detail in Go project do
 {
   "name": "get-library-docs",
   "arguments": {
-    "context7CompatibleLibraryID": "my-go-project",
+    "library-id": "my-go-project",
     "includeNonExported": true,
     "tokens": 15000
   }
@@ -570,6 +600,182 @@ The `includeNonExported` parameter controls the level of detail in Go project do
 **Endpoint**: `GET /health`
 
 Returns server status and capability information.
+
+## MCP Client
+
+Repomix-MCP includes a built-in **independent MCP client** for testing, debugging, and direct interaction with MCP servers. The client provides a complete command-line interface with colorized JSON output and smart features.
+
+### Key Features
+
+- 🎨 **Colorized JSON Output**: Syntax highlighting with custom ANSI colors (no external dependencies)
+- 📱 **Independent Operation**: No config file or BadgerDB required - completely standalone
+- 🔗 **HTTP/HTTPS Support**: Connect to any MCP-compatible server
+- 🛠️ **Tool Discovery**: List available tools with detailed schemas
+- ⚡ **Tool Execution**: Execute tools with flexible argument parsing
+- 📊 **Multiple Output Formats**: JSON, table, and raw text output
+- 🔍 **Verbose Debugging**: Detailed connection and execution information
+
+### Client Usage
+
+#### Basic Commands
+
+```bash
+# List available tools from local server
+./repomix-mcp client --mcp-srv 127.0.0.1:8080 --mcp-list
+
+# List tools from remote HTTPS server
+./repomix-mcp client --mcp-srv https://server.com:443 --mcp-list --verbose
+
+# Execute a tool with arguments
+./repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=golang"
+
+# Execute with custom token limit (new feature)
+./repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=gin,tokens=15000"
+
+# Multiple arguments
+./repomix-mcp client --mcp-use get-library-docs --mcp-args="library-id=my-repo,tokens=5000,topic=authentication"
+```
+
+#### Enhanced resolve-library-id Tool
+
+The `resolve-library-id` tool now includes **smart auto-content inclusion**:
+
+- **Multiple matches**: Returns numbered list of repository IDs
+- **Single match**: Automatically includes full documentation content (public/exported only)
+- **Configurable tokens**: Control content size with `tokens` parameter
+- **Public/exported focus**: Clean, API-focused documentation
+
+```bash
+# Smart resolution with auto-content
+./repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=myapi,tokens=12000"
+
+# If only one repository matches "myapi", you get:
+# Repository ID: myapi-v2
+#
+# # Repository: myapi-v2
+# **Path:** /path/to/myapi
+# **Last Updated:** 2024-01-31 14:35:00
+#
+# ## File: README.md
+# [Full documentation content here...]
+```
+
+#### Output Formats
+
+```bash
+# Colorized JSON (default)
+./repomix-mcp client --mcp-list --format json
+
+# Human-readable table
+./repomix-mcp client --mcp-list --format table
+
+# Raw text output
+./repomix-mcp client --mcp-list --format raw
+```
+
+#### Verbose Mode
+
+```bash
+# Detailed debugging information
+./repomix-mcp client --mcp-list --verbose
+
+# Output includes:
+# MCP CLIENT CONNECTION:
+# ------------------------------
+# Server: 127.0.0.1:8080
+# Status: CONNECTED
+#
+# [Detailed request/response information]
+```
+
+### Client Configuration
+
+The client accepts these command-line flags:
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--mcp-srv` | MCP server address | `127.0.0.1:8080` |
+| `--mcp-list` | List available tools | `false` |
+| `--mcp-use` | Tool name to execute | `""` |
+| `--mcp-args` | Tool arguments (key=value,key2=value2) | `""` |
+| `--format` | Output format (json, table, raw) | `json` |
+| `--verbose` | Show detailed information | `false` |
+
+### JSON Syntax Highlighting
+
+The client features **built-in JSON syntax highlighting** without external dependencies:
+
+- 🟣 **Purple**: Property keys (`"name":`)
+- 🔷 **Cyan**: String values (`"resolve-library-id"`)
+- 🔵 **Blue**: Numbers (`4`, `10000`)
+- 🟢 **Green**: `true` values
+- 🔴 **Red**: `false` values
+- 🟣 **Purple**: `null` values
+- 🟡 **Yellow**: Structural characters `{}`
+- ⚪ **White**: Punctuation `:,`
+
+### Server Testing Workflow
+
+Use the client to test your MCP server:
+
+```bash
+# 1. Start your server
+./repomix-mcp serve -c config.json &
+
+# 2. Test connection and list tools
+./repomix-mcp client --mcp-list --verbose
+
+# 3. Test tool resolution
+./repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=test"
+
+# 4. Test documentation retrieval
+./repomix-mcp client --mcp-use get-library-docs --mcp-args="library-id=your-repo,includeNonExported=true"
+
+# 5. Test with different output formats
+./repomix-mcp client --mcp-list --format table
+```
+
+### Advanced Usage Examples
+
+```bash
+# Test Go module fallback
+./repomix-mcp client --mcp-use resolve-library-id --mcp-args="libraryName=github.com/gin-gonic/gin"
+
+# Get detailed documentation with non-exported constructs
+./repomix-mcp client --mcp-use get-library-docs --mcp-args="library-id=gomod:github.com/sirupsen/logrus,includeNonExported=true,tokens=20000"
+
+# Focus on specific topic
+./repomix-mcp client --mcp-use get-library-docs --mcp-args="library-id=my-auth-service,topic=jwt,tokens=8000"
+
+# Test against remote server
+./repomix-mcp client --mcp-srv https://api.company.com:9443 --mcp-list --verbose
+```
+
+### Troubleshooting Client Issues
+
+**Connection Refused**:
+```bash
+# Check if server is running
+curl http://127.0.0.1:8080/health
+
+# Try different port
+./repomix-mcp client --mcp-srv 127.0.0.1:9080 --mcp-list
+```
+
+**Color Issues**:
+```bash
+# If colors don't display correctly, use raw format
+./repomix-mcp client --mcp-list --format raw
+
+# Or redirect to file to avoid color codes
+./repomix-mcp client --mcp-list > output.json
+```
+
+**Authentication Errors**:
+```bash
+# Test with verbose mode for detailed error information
+./repomix-mcp client --mcp-list --verbose
+```
 
 ## Usage Examples
 
@@ -697,10 +903,15 @@ repomix-mcp/
 │   ├── config/         # Configuration management
 │   ├── indexer/        # Repomix CLI integration
 │   ├── mcp/            # MCP server implementation
+│   ├── mcpclient/      # MCP client implementation (NEW)
+│   │   ├── client.go   # Core client logic
+│   │   ├── formatter.go # JSON syntax highlighting
+│   │   └── args.go     # Argument parsing
 │   ├── repository/     # Git repository management
 │   └── search/         # Search engine
 ├── pkg/types/          # Shared types and interfaces
 ├── configs/            # Example configurations
+├── examples/           # Usage examples and documentation (NEW)
 └── docs/              # Documentation
 ```
 
@@ -771,6 +982,33 @@ Check server health:
 ```bash
 curl http://localhost:8080/mcp/health
 ```
+
+### MCP Client Issues
+
+**JSON colors not displaying correctly**
+- Terminal may not support ANSI colors
+- Use raw format: `./repomix-mcp client --mcp-list --format raw`
+- Or table format: `./repomix-mcp client --mcp-list --format table`
+
+**Client connection fails**
+- Verify server is running: `curl http://127.0.0.1:8080/health`
+- Check firewall and port settings
+- Try different server address: `--mcp-srv 127.0.0.1:9080`
+
+**Tool execution errors**
+- Use verbose mode for detailed debugging: `--verbose`
+- Check argument format: `--mcp-args="key=value,key2=value2"`
+- Verify tool name with: `--mcp-list`
+
+**Auto-content not appearing**
+- Feature only works with single repository matches
+- Multiple matches will show list instead of content
+- Use `get-library-docs` for specific repository content
+
+**Performance issues with large repositories**
+- Reduce token limit: `--mcp-args="libraryName=repo,tokens=5000"`
+- Use `includeNonExported=false` for faster processing (default)
+- Consider excluding large files in server configuration
 
 ## 📄 License
 

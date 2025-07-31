@@ -51,6 +51,10 @@ internal\indexer\indexer.go
 internal\indexer\mock.go
 internal\mcp\server.go
 internal\mcp\tls.go
+internal\mcpclient\args.go
+internal\mcpclient\client.go
+internal\mcpclient\formatter.go
+internal\mcpclient\mock.go
 internal\parser\go_parser.go
 internal\repository\mock.go
 internal\repository\repository.go
@@ -73,21 +77,21 @@ type Application struct {
     indexer *indexer.Indexer
     searchEngine SearchInterface
     mcpServer *mcp.Server
-}  // cmd\repomix-mcp\main.go:29
-type MockSearchEngine struct  // cmd\repomix-mcp\main.go:46
+}  // cmd\repomix-mcp\main.go:30
+type MockSearchEngine struct  // cmd\repomix-mcp\main.go:47
 
 type SearchInterface interface {
     Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
-}  // cmd\repomix-mcp\main.go:40
+}  // cmd\repomix-mcp\main.go:41
 
-func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:60
+func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:61
 
-func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:271
-func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:120
-func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:164
-func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:69
-func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:49
-func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:254
+func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:272
+func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:121
+func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:165
+func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:70
+func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:50
+func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:255
 
 </file>
 
@@ -271,10 +275,10 @@ type SearchInterface interface {
 
 func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:72
 
-func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:845
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:914
 func (*Server) Start() error  // internal\mcp\server.go:112
-func (*Server) Stop() error  // internal\mcp\server.go:1043
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1031
+func (*Server) Stop() error  // internal\mcp\server.go:1112
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1100
 
 </file>
 
@@ -284,6 +288,109 @@ func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\
 
 func GenerateSelfSignedCert(certPath string, keyPath string, hosts []string) error  // internal\mcp\tls.go:31
 func LoadTLSConfig(certPath string, keyPath string, autoGenCert bool, hosts []string) (*tls.Config, error)  // internal\mcp\tls.go:122
+
+</file>
+
+<file path="internal\mcpclient\args.go" package="mcpclient">
+// Package: mcpclient
+// File: internal\mcpclient\args.go
+
+type ArgumentBuilder struct {
+    args map[string]interface{}
+}  // internal\mcpclient\args.go:201
+
+func FormatArguments(args map[string]interface{}) string  // internal\mcpclient\args.go:87
+func NewArgumentBuilder() *ArgumentBuilder  // internal\mcpclient\args.go:206
+func ParseArguments(argsString string) (map[string]interface{}, error)  // internal\mcpclient\args.go:32
+func ValidateRequiredArguments(args map[string]interface{}, required []string) error  // internal\mcpclient\args.go:113
+
+func (*ArgumentBuilder) Add(key string, value interface{}) *ArgumentBuilder  // internal\mcpclient\args.go:213
+func (*ArgumentBuilder) AddBool(key string, value bool) *ArgumentBuilder  // internal\mcpclient\args.go:231
+func (*ArgumentBuilder) AddInt(key string, value int) *ArgumentBuilder  // internal\mcpclient\args.go:225
+func (*ArgumentBuilder) AddString(key string, value string) *ArgumentBuilder  // internal\mcpclient\args.go:219
+func (*ArgumentBuilder) Build() map[string]interface{}  // internal\mcpclient\args.go:237
+func (*ArgumentBuilder) Clear() *ArgumentBuilder  // internal\mcpclient\args.go:242
+
+</file>
+
+<file path="internal\mcpclient\client.go" package="mcpclient">
+// Package: mcpclient
+// File: internal\mcpclient\client.go
+
+type Client struct {
+    serverAddress string
+    httpClient *http.Client
+    verbose bool
+    initialized bool
+    sessionID string
+}  // internal\mcpclient\client.go:24
+
+func NewClient(serverAddress string) (*Client, error)  // internal\mcpclient\client.go:48
+
+func (*Client) CallTool(toolName string, arguments map[string]interface{}) (*types.MCPToolCallResult, error)  // internal\mcpclient\client.go:195
+func (*Client) Close() error  // internal\mcpclient\client.go:245
+func (*Client) Connect() error  // internal\mcpclient\client.go:94
+func (*Client) ListTools() ([]types.MCPTool, error)  // internal\mcpclient\client.go:135
+func (*Client) SetVerbose(verbose bool)  // internal\mcpclient\client.go:78
+
+</file>
+
+<file path="internal\mcpclient\formatter.go" package="mcpclient">
+// Package: mcpclient
+// File: internal\mcpclient\formatter.go
+
+const OutputFormatJSON = "json"  // internal\mcpclient\formatter.go:33
+const OutputFormatRaw = "raw"  // internal\mcpclient\formatter.go:39
+const OutputFormatTable = "table"  // internal\mcpclient\formatter.go:36
+
+type OutputFormat = string  // internal\mcpclient\formatter.go:29
+
+func FormatConnectionInfo(serverAddress string, connected bool) string  // internal\mcpclient\formatter.go:405
+func FormatError(err error, verbose bool) string  // internal\mcpclient\formatter.go:293
+func FormatToolResult(toolName string, result *types.MCPToolCallResult, format OutputFormat) (string, error)  // internal\mcpclient\formatter.go:84
+func FormatToolsList(tools []types.MCPTool, format OutputFormat) (string, error)  // internal\mcpclient\formatter.go:56
+
+</file>
+
+<file path="internal\mcpclient\mock.go" package="mcpclient">
+// Package: mcpclient
+// File: internal\mcpclient\mock.go
+
+type MockClient struct {
+    serverAddress string
+    verbose bool
+    initialized bool
+    mockTools []types.MCPTool
+    mockToolResults map[string]*types.MCPToolCallResult
+    connectError error
+    listToolsError error
+    callToolError error
+    ConnectCalled bool
+    ListToolsCalled bool
+    CallToolCalls []MockToolCall
+}  // internal\mcpclient\mock.go:13
+type MockToolCall struct {
+    ToolName string
+    Arguments map[string]interface{}
+}  // internal\mcpclient\mock.go:35
+
+func CreateMockToolResults() map[string]*types.MCPToolCallResult  // internal\mcpclient\mock.go:252
+func CreateMockTools() []types.MCPTool  // internal\mcpclient\mock.go:193
+func NewMockClient(serverAddress string) *MockClient  // internal\mcpclient\mock.go:42
+
+func (*MockClient) CallTool(toolName string, arguments map[string]interface{}) (*types.MCPToolCallResult, error)  // internal\mcpclient\mock.go:87
+func (*MockClient) Close() error  // internal\mcpclient\mock.go:121
+func (*MockClient) Connect() error  // internal\mcpclient\mock.go:58
+func (*MockClient) GetCallCount(toolName string) int  // internal\mcpclient\mock.go:171
+func (*MockClient) GetLastCall(toolName string) map[string]interface{}  // internal\mcpclient\mock.go:182
+func (*MockClient) ListTools() ([]types.MCPTool, error)  // internal\mcpclient\mock.go:71
+func (*MockClient) Reset()  // internal\mcpclient\mock.go:158
+func (*MockClient) SetCallToolError(err error)  // internal\mcpclient\mock.go:150
+func (*MockClient) SetConnectError(err error)  // internal\mcpclient\mock.go:140
+func (*MockClient) SetListToolsError(err error)  // internal\mcpclient\mock.go:145
+func (*MockClient) SetMockToolResult(toolName string, result *types.MCPToolCallResult)  // internal\mcpclient\mock.go:135
+func (*MockClient) SetMockTools(tools []types.MCPTool)  // internal\mcpclient\mock.go:130
+func (*MockClient) SetVerbose(verbose bool)  // internal\mcpclient\mock.go:52
 
 </file>
 
@@ -704,21 +811,21 @@ type Application struct {
     indexer *indexer.Indexer
     searchEngine SearchInterface
     mcpServer *mcp.Server
-}  // cmd\repomix-mcp\main.go:29
-type MockSearchEngine struct  // cmd\repomix-mcp\main.go:46
+}  // cmd\repomix-mcp\main.go:30
+type MockSearchEngine struct  // cmd\repomix-mcp\main.go:47
 
 type SearchInterface interface {
     Searchfunc(types.SearchQuery) ([]types.SearchResult, error)
-}  // cmd\repomix-mcp\main.go:40
+}  // cmd\repomix-mcp\main.go:41
 
-func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:60
+func NewApplication() (*Application, error)  // cmd\repomix-mcp\main.go:61
 
-func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:271
-func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:120
-func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:164
-func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:69
-func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:49
-func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:254
+func (*Application) Cleanup() error  // cmd\repomix-mcp\main.go:272
+func (*Application) IndexAllRepositories() error  // cmd\repomix-mcp\main.go:121
+func (*Application) IndexRepository(alias string) error  // cmd\repomix-mcp\main.go:165
+func (*Application) Initialize(configPath string) error  // cmd\repomix-mcp\main.go:70
+func (*MockSearchEngine) Search(query types.SearchQuery) ([]types.SearchResult, error)  // cmd\repomix-mcp\main.go:50
+func (*Application) StartServer() error  // cmd\repomix-mcp\main.go:255
 
 </package>
 
@@ -752,10 +859,87 @@ func GenerateSelfSignedCert(certPath string, keyPath string, hosts []string) err
 func LoadTLSConfig(certPath string, keyPath string, autoGenCert bool, hosts []string) (*tls.Config, error)  // internal\mcp\tls.go:122
 func NewServer(config *types.Config, cache CacheInterface, searchEngine SearchInterface) (*Server, error)  // internal\mcp\server.go:72
 
-func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:845
+func (*Server) SetVerbose(verbose bool)  // internal\mcp\server.go:914
 func (*Server) Start() error  // internal\mcp\server.go:112
-func (*Server) Stop() error  // internal\mcp\server.go:1043
-func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1031
+func (*Server) Stop() error  // internal\mcp\server.go:1112
+func (*Server) UpdateRepository(repo *types.RepositoryIndex) error  // internal\mcp\server.go:1100
+
+</package>
+
+<package name="mcpclient">
+// Package: mcpclient (exported constructs only)
+
+const OutputFormatJSON = "json"  // internal\mcpclient\formatter.go:33
+const OutputFormatRaw = "raw"  // internal\mcpclient\formatter.go:39
+const OutputFormatTable = "table"  // internal\mcpclient\formatter.go:36
+
+type OutputFormat = string  // internal\mcpclient\formatter.go:29
+
+type ArgumentBuilder struct {
+    args map[string]interface{}
+}  // internal\mcpclient\args.go:201
+type Client struct {
+    serverAddress string
+    httpClient *http.Client
+    verbose bool
+    initialized bool
+    sessionID string
+}  // internal\mcpclient\client.go:24
+type MockClient struct {
+    serverAddress string
+    verbose bool
+    initialized bool
+    mockTools []types.MCPTool
+    mockToolResults map[string]*types.MCPToolCallResult
+    connectError error
+    listToolsError error
+    callToolError error
+    ConnectCalled bool
+    ListToolsCalled bool
+    CallToolCalls []MockToolCall
+}  // internal\mcpclient\mock.go:13
+type MockToolCall struct {
+    ToolName string
+    Arguments map[string]interface{}
+}  // internal\mcpclient\mock.go:35
+
+func CreateMockToolResults() map[string]*types.MCPToolCallResult  // internal\mcpclient\mock.go:252
+func CreateMockTools() []types.MCPTool  // internal\mcpclient\mock.go:193
+func FormatArguments(args map[string]interface{}) string  // internal\mcpclient\args.go:87
+func FormatConnectionInfo(serverAddress string, connected bool) string  // internal\mcpclient\formatter.go:405
+func FormatError(err error, verbose bool) string  // internal\mcpclient\formatter.go:293
+func FormatToolResult(toolName string, result *types.MCPToolCallResult, format OutputFormat) (string, error)  // internal\mcpclient\formatter.go:84
+func FormatToolsList(tools []types.MCPTool, format OutputFormat) (string, error)  // internal\mcpclient\formatter.go:56
+func NewArgumentBuilder() *ArgumentBuilder  // internal\mcpclient\args.go:206
+func NewClient(serverAddress string) (*Client, error)  // internal\mcpclient\client.go:48
+func NewMockClient(serverAddress string) *MockClient  // internal\mcpclient\mock.go:42
+func ParseArguments(argsString string) (map[string]interface{}, error)  // internal\mcpclient\args.go:32
+func ValidateRequiredArguments(args map[string]interface{}, required []string) error  // internal\mcpclient\args.go:113
+
+func (*ArgumentBuilder) Add(key string, value interface{}) *ArgumentBuilder  // internal\mcpclient\args.go:213
+func (*ArgumentBuilder) AddBool(key string, value bool) *ArgumentBuilder  // internal\mcpclient\args.go:231
+func (*ArgumentBuilder) AddInt(key string, value int) *ArgumentBuilder  // internal\mcpclient\args.go:225
+func (*ArgumentBuilder) AddString(key string, value string) *ArgumentBuilder  // internal\mcpclient\args.go:219
+func (*ArgumentBuilder) Build() map[string]interface{}  // internal\mcpclient\args.go:237
+func (*MockClient) CallTool(toolName string, arguments map[string]interface{}) (*types.MCPToolCallResult, error)  // internal\mcpclient\mock.go:87
+func (*Client) CallTool(toolName string, arguments map[string]interface{}) (*types.MCPToolCallResult, error)  // internal\mcpclient\client.go:195
+func (*ArgumentBuilder) Clear() *ArgumentBuilder  // internal\mcpclient\args.go:242
+func (*Client) Close() error  // internal\mcpclient\client.go:245
+func (*MockClient) Close() error  // internal\mcpclient\mock.go:121
+func (*MockClient) Connect() error  // internal\mcpclient\mock.go:58
+func (*Client) Connect() error  // internal\mcpclient\client.go:94
+func (*MockClient) GetCallCount(toolName string) int  // internal\mcpclient\mock.go:171
+func (*MockClient) GetLastCall(toolName string) map[string]interface{}  // internal\mcpclient\mock.go:182
+func (*Client) ListTools() ([]types.MCPTool, error)  // internal\mcpclient\client.go:135
+func (*MockClient) ListTools() ([]types.MCPTool, error)  // internal\mcpclient\mock.go:71
+func (*MockClient) Reset()  // internal\mcpclient\mock.go:158
+func (*MockClient) SetCallToolError(err error)  // internal\mcpclient\mock.go:150
+func (*MockClient) SetConnectError(err error)  // internal\mcpclient\mock.go:140
+func (*MockClient) SetListToolsError(err error)  // internal\mcpclient\mock.go:145
+func (*MockClient) SetMockToolResult(toolName string, result *types.MCPToolCallResult)  // internal\mcpclient\mock.go:135
+func (*MockClient) SetMockTools(tools []types.MCPTool)  // internal\mcpclient\mock.go:130
+func (*MockClient) SetVerbose(verbose bool)  // internal\mcpclient\mock.go:52
+func (*Client) SetVerbose(verbose bool)  // internal\mcpclient\client.go:78
 
 </package>
 
