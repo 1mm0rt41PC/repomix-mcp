@@ -126,12 +126,6 @@ func (*Cache) StoreRepository(repo *types.RepositoryIndex) error  // internal\ca
 
 </file>
 
-<file path="internal\cache\mock.go" package="cache">
-// Package: cache
-// File: internal\cache\mock.go
-
-</file>
-
 <file path="internal\config\config.go" package="config">
 // Package: config
 // File: internal\config\config.go
@@ -150,18 +144,6 @@ func (*Manager) GetRepositoryAliases() []string  // internal\config\config.go:36
 func (*Manager) LoadConfig(configPath string) error  // internal\config\config.go:54
 func (*Manager) LoadConfigFromJSON(jsonData []byte) error  // internal\config\config.go:108
 func (*Manager) SaveConfig(configPath string) error  // internal\config\config.go:392
-
-</file>
-
-<file path="internal\config\mock.go" package="config">
-// Package: config
-// File: internal\config\mock.go
-
-</file>
-
-<file path="internal\godoc\executor.go" package="godoc">
-// Package: godoc
-// File: internal\godoc\executor.go
 
 </file>
 
@@ -203,12 +185,6 @@ func (*GoDocRetriever) SetVerbose(verbose bool)  // internal\godoc\godoc.go:105
 
 </file>
 
-<file path="internal\godoc\mock.go" package="godoc">
-// Package: godoc
-// File: internal\godoc\mock.go
-
-</file>
-
 <file path="internal\indexer\indexer.go" package="indexer">
 // Package: indexer
 // File: internal\indexer\indexer.go
@@ -237,12 +213,6 @@ func (*Indexer) IndexRepository(repositoryID string, localPath string, config ty
 func (*Indexer) IndexSingleFile(repositoryPath string, filePath string) (*types.IndexedFile, error)  // internal\indexer\indexer.go:536
 func (IndexingStrategy) String() string  // internal\indexer\indexer.go:30
 func (*Indexer) ValidateRepomix() error  // internal\indexer\indexer.go:513
-
-</file>
-
-<file path="internal\indexer\mock.go" package="indexer">
-// Package: indexer
-// File: internal\indexer\mock.go
 
 </file>
 
@@ -436,12 +406,6 @@ func (*GoParser) ParseRepository(repositoryID string, localPath string, config t
 
 </file>
 
-<file path="internal\repository\mock.go" package="repository">
-// Package: repository
-// File: internal\repository\mock.go
-
-</file>
-
 <file path="internal\repository\repository.go" package="repository">
 // Package: repository
 // File: internal\repository\repository.go
@@ -458,12 +422,6 @@ func (*Manager) GetFileContent(localPath string, relPath string) (string, error)
 func (*Manager) GetRepositoryInfo(repositoryID string, localPath string) (*types.RepositoryIndex, error)  // internal\repository\repository.go:375
 func (*Manager) ListFiles(localPath string, indexingConfig types.IndexingConfig) ([]string, error)  // internal\repository\repository.go:450
 func (*Manager) PrepareRepository(alias string, config *types.RepositoryConfig) (string, error)  // internal\repository\repository.go:79
-
-</file>
-
-<file path="internal\search\mock.go" package="search">
-// Package: search
-// File: internal\search\mock.go
 
 </file>
 

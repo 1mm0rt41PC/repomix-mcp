@@ -1,6 +1,6 @@
 // ************************************************************************************************
 // Package parser provides Go AST parsing functionality for the repomix-mcp application.
-// It extracts Go language constructs (functions, structs, variables, constants, types) 
+// It extracts Go language constructs (functions, structs, variables, constants, types)
 // from Go source files and generates structured representations for AI consumption.
 package parser
 
@@ -27,38 +27,38 @@ type GoParser struct {
 // ************************************************************************************************
 // GoConstruct represents a parsed Go language construct.
 type GoConstruct struct {
-	Type        string            `json:"type"`        // "func", "struct", "var", "const", "type", "interface"
-	Name        string            `json:"name"`        // Construct name
-	Signature   string            `json:"signature"`   // Full signature/declaration
-	Package     string            `json:"package"`     // Package name
-	File        string            `json:"file"`        // Source file path
-	Line        int               `json:"line"`        // Line number
-	Exported    bool              `json:"exported"`    // Whether construct is exported (public)
-	Receiver    string            `json:"receiver"`    // Method receiver (for methods)
-	Parameters  []string          `json:"parameters"`  // Function parameters
-	Returns     []string          `json:"returns"`     // Function return types
-	Fields      []string          `json:"fields"`      // Struct fields
-	Methods     []string          `json:"methods"`     // Interface methods
-	Metadata    map[string]string `json:"metadata"`    // Additional metadata
+	Type       string            `json:"type"`       // "func", "struct", "var", "const", "type", "interface"
+	Name       string            `json:"name"`       // Construct name
+	Signature  string            `json:"signature"`  // Full signature/declaration
+	Package    string            `json:"package"`    // Package name
+	File       string            `json:"file"`       // Source file path
+	Line       int               `json:"line"`       // Line number
+	Exported   bool              `json:"exported"`   // Whether construct is exported (public)
+	Receiver   string            `json:"receiver"`   // Method receiver (for methods)
+	Parameters []string          `json:"parameters"` // Function parameters
+	Returns    []string          `json:"returns"`    // Function return types
+	Fields     []string          `json:"fields"`     // Struct fields
+	Methods    []string          `json:"methods"`    // Interface methods
+	Metadata   map[string]string `json:"metadata"`   // Additional metadata
 }
 
 // ************************************************************************************************
 // GoFileAnalysis represents analysis of a single Go file.
 type GoFileAnalysis struct {
-	FilePath    string       `json:"filePath"`
-	PackageName string       `json:"packageName"`
+	FilePath    string        `json:"filePath"`
+	PackageName string        `json:"packageName"`
 	Constructs  []GoConstruct `json:"constructs"`
 }
 
 // ************************************************************************************************
 // GoPackageAnalysis represents the complete analysis of a Go package.
 type GoPackageAnalysis struct {
-	PackageName     string       `json:"packageName"`
-	Path            string       `json:"path"`
-	Files           []string     `json:"files"`
-	Constructs      map[string][]GoConstruct `json:"constructs"` // Organized by type
-	ExportedOnly    map[string][]GoConstruct `json:"exportedOnly"` // Only exported constructs by type
-	Summary         map[string]int `json:"summary"`    // Count by construct type
+	PackageName  string                   `json:"packageName"`
+	Path         string                   `json:"path"`
+	Files        []string                 `json:"files"`
+	Constructs   map[string][]GoConstruct `json:"constructs"`   // Organized by type
+	ExportedOnly map[string][]GoConstruct `json:"exportedOnly"` // Only exported constructs by type
+	Summary      map[string]int           `json:"summary"`      // Count by construct type
 }
 
 // ************************************************************************************************
@@ -128,13 +128,13 @@ func (p *GoParser) ParseRepository(repositoryID, localPath string, config types.
 			// Add constructs to package analysis
 			for _, construct := range constructs {
 				constructType := construct.Type
-				
+
 				// Add to all constructs
 				if _, exists := packageAnalyses[pkg].Constructs[constructType]; !exists {
 					packageAnalyses[pkg].Constructs[constructType] = make([]GoConstruct, 0)
 				}
 				packageAnalyses[pkg].Constructs[constructType] = append(packageAnalyses[pkg].Constructs[constructType], construct)
-				
+
 				// Add to exported-only if exported
 				if construct.Exported {
 					if _, exists := packageAnalyses[pkg].ExportedOnly[constructType]; !exists {
@@ -170,9 +170,9 @@ func (p *GoParser) ParseRepository(repositoryID, localPath string, config types.
 		Language:     "xml",
 		RepositoryID: repositoryID,
 		Metadata: map[string]string{
-			"indexer_type":    "go_native",
-			"go_files_count":  fmt.Sprintf("%d", len(goFiles)),
-			"packages_count":  fmt.Sprintf("%d", len(packageAnalyses)),
+			"indexer_type":   "go_native",
+			"go_files_count": fmt.Sprintf("%d", len(goFiles)),
+			"packages_count": fmt.Sprintf("%d", len(packageAnalyses)),
 		},
 	}
 
@@ -254,7 +254,7 @@ func (p *GoParser) findGoFiles(localPath string) ([]string, error) {
 // parseGoFile parses a single Go file and extracts all constructs.
 func (p *GoParser) parseGoFile(filePath, basePath string) ([]GoConstruct, string, error) {
 	fullPath := filepath.Join(basePath, filePath)
-	
+
 	// Parse the Go file
 	src, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -300,7 +300,7 @@ func (p *GoParser) parseGoFile(filePath, basePath string) ([]GoConstruct, string
 // extractFunction extracts function/method information from AST.
 func (p *GoParser) extractFunction(fn *ast.FuncDecl, filePath, packageName string) GoConstruct {
 	pos := p.fileSet.Position(fn.Pos())
-	
+
 	construct := GoConstruct{
 		Type:     "func",
 		Name:     fn.Name.Name,
@@ -350,7 +350,7 @@ func (p *GoParser) extractFunction(fn *ast.FuncDecl, filePath, packageName strin
 // extractType extracts type declarations (struct, interface, type alias).
 func (p *GoParser) extractType(ts *ast.TypeSpec, genDecl *ast.GenDecl, filePath, packageName string) GoConstruct {
 	pos := p.fileSet.Position(ts.Pos())
-	
+
 	construct := GoConstruct{
 		Name:     ts.Name.Name,
 		Package:  packageName,
@@ -444,7 +444,7 @@ func (p *GoParser) extractStructFields(st *ast.StructType) []string {
 	if st.Fields != nil {
 		for _, field := range st.Fields.List {
 			fieldType := p.typeToString(field.Type)
-			
+
 			if len(field.Names) > 0 {
 				for _, name := range field.Names {
 					tagStr := ""
@@ -490,18 +490,18 @@ func (p *GoParser) extractInterfaceMethods(it *ast.InterfaceType) []string {
 
 func (p *GoParser) generateFunctionSignature(construct GoConstruct) string {
 	var sig strings.Builder
-	
+
 	sig.WriteString("func ")
-	
+
 	if construct.Receiver != "" {
 		sig.WriteString(fmt.Sprintf("(%s) ", construct.Receiver))
 	}
-	
+
 	sig.WriteString(construct.Name)
 	sig.WriteString("(")
 	sig.WriteString(strings.Join(construct.Parameters, ", "))
 	sig.WriteString(")")
-	
+
 	if len(construct.Returns) > 0 {
 		if len(construct.Returns) == 1 {
 			sig.WriteString(" " + construct.Returns[0])
@@ -509,7 +509,7 @@ func (p *GoParser) generateFunctionSignature(construct GoConstruct) string {
 			sig.WriteString(" (" + strings.Join(construct.Returns, ", ") + ")")
 		}
 	}
-	
+
 	return sig.String()
 }
 
@@ -525,7 +525,7 @@ func (p *GoParser) typeToString(expr ast.Expr) string {
 	if expr == nil {
 		return ""
 	}
-	
+
 	switch t := expr.(type) {
 	case *ast.Ident:
 		return t.Name
@@ -561,7 +561,7 @@ func (p *GoParser) typeToString(expr ast.Expr) string {
 func (p *GoParser) funcTypeToString(ft *ast.FuncType) string {
 	var sig strings.Builder
 	sig.WriteString("func(")
-	
+
 	if ft.Params != nil {
 		var params []string
 		for _, param := range ft.Params.List {
@@ -570,9 +570,9 @@ func (p *GoParser) funcTypeToString(ft *ast.FuncType) string {
 		}
 		sig.WriteString(strings.Join(params, ", "))
 	}
-	
+
 	sig.WriteString(")")
-	
+
 	if ft.Results != nil && len(ft.Results.List) > 0 {
 		var results []string
 		for _, result := range ft.Results.List {
@@ -584,7 +584,7 @@ func (p *GoParser) funcTypeToString(ft *ast.FuncType) string {
 			sig.WriteString(" (" + strings.Join(results, ", ") + ")")
 		}
 	}
-	
+
 	return sig.String()
 }
 
@@ -592,7 +592,7 @@ func (p *GoParser) nodeToString(node ast.Node) string {
 	if node == nil {
 		return "nil"
 	}
-	
+
 	switch n := node.(type) {
 	case *ast.Ident:
 		return n.Name
@@ -668,10 +668,10 @@ func (p *GoParser) calculateContentHash(content string) string {
 	if len(content) == 0 {
 		return "empty"
 	}
-	
+
 	first := content[0]
 	last := content[len(content)-1]
-	
+
 	return fmt.Sprintf("go_%d_%c_%c", len(content), first, last)
 }
 
@@ -679,22 +679,22 @@ func (p *GoParser) calculateContentHash(content string) string {
 // generateRepomixXML generates XML output in repomix-compatible format for Go projects.
 func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalyses map[string]*GoFileAnalysis, packageAnalyses map[string]*GoPackageAnalysis, goFiles []string, includeNonExported bool) string {
 	var xml strings.Builder
-	
+
 	// XML header
 	xml.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	xml.WriteString("<repository>\n")
-	
+
 	// File summary section
 	xml.WriteString("<file_summary>\n")
 	xml.WriteString("This file is a merged representation of a subset of the codebase, containing Go files with extracted language constructs.\n")
 	xml.WriteString("The content has been processed where Go AST analysis extracted functions, structs, variables, constants, and types.\n\n")
-	
+
 	xml.WriteString("<purpose>\n")
 	xml.WriteString("This file contains a Go-specific analysis of the repository's Go source code.\n")
 	xml.WriteString("It is designed to be easily consumable by AI systems for Go code analysis,\n")
 	xml.WriteString("code review, or other automated processes focusing on Go language constructs.\n")
 	xml.WriteString("</purpose>\n\n")
-	
+
 	xml.WriteString("<file_format>\n")
 	xml.WriteString("The content is organized as follows:\n")
 	xml.WriteString("1. This summary section\n")
@@ -703,7 +703,7 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 	xml.WriteString("4. Individual file sections with constructs from each file\n")
 	xml.WriteString("5. Package sections with exported constructs only\n")
 	xml.WriteString("</file_format>\n\n")
-	
+
 	xml.WriteString("<usage_guidelines>\n")
 	xml.WriteString("- This file should be treated as read-only. Any changes should be made to the\n")
 	xml.WriteString("  original repository files, not this packed version.\n")
@@ -712,7 +712,7 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 	xml.WriteString("- Be aware that this file may contain sensitive information. Handle it with\n")
 	xml.WriteString("  the same level of security as you would the original repository.\n")
 	xml.WriteString("</usage_guidelines>\n\n")
-	
+
 	xml.WriteString("<notes>\n")
 	xml.WriteString("- Test files (*_test.go) are excluded from this analysis\n")
 	if includeNonExported {
@@ -725,7 +725,7 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 	xml.WriteString("- Go AST parsing ensures accurate construct extraction\n")
 	xml.WriteString("</notes>\n\n")
 	xml.WriteString("</file_summary>\n\n")
-	
+
 	// Directory structure
 	xml.WriteString("<directory_structure>\n")
 	sort.Strings(goFiles)
@@ -733,24 +733,21 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 		xml.WriteString(file + "\n")
 	}
 	xml.WriteString("</directory_structure>\n\n")
-	
+
 	// Individual file sections
 	xml.WriteString("<files>\n")
-	
+
 	// Sort files for consistent output
 	sortedFiles := make([]string, 0, len(fileAnalyses))
 	for filePath := range fileAnalyses {
 		sortedFiles = append(sortedFiles, filePath)
 	}
 	sort.Strings(sortedFiles)
-	
+
 	// Generate file-specific sections
 	for _, filePath := range sortedFiles {
 		fileAnalysis := fileAnalyses[filePath]
-		xml.WriteString(fmt.Sprintf(`<file path="%s" package="%s">` + "\n", filePath, fileAnalysis.PackageName))
-		xml.WriteString(fmt.Sprintf("// Package: %s\n", fileAnalysis.PackageName))
-		xml.WriteString(fmt.Sprintf("// File: %s\n\n", filePath))
-		
+
 		// Group constructs by type for this file
 		fileConstructsByType := make(map[string][]GoConstruct)
 		for _, construct := range fileAnalysis.Constructs {
@@ -758,24 +755,29 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 			if !includeNonExported && !construct.Exported {
 				continue
 			}
-			
 			constructType := construct.Type
 			if _, exists := fileConstructsByType[constructType]; !exists {
 				fileConstructsByType[constructType] = make([]GoConstruct, 0)
 			}
 			fileConstructsByType[constructType] = append(fileConstructsByType[constructType], construct)
 		}
-		
+		if len(fileConstructsByType) == 0 {
+			continue // Skip files with no constructs
+		}
+		xml.WriteString(fmt.Sprintf(`<file path="%s" package="%s">`+"\n", filePath, fileAnalysis.PackageName))
+		xml.WriteString(fmt.Sprintf("// Package: %s\n", fileAnalysis.PackageName))
+		xml.WriteString(fmt.Sprintf("// File: %s\n\n", filePath))
+
 		// Sort construct types for consistent output
 		constructTypes := []string{"const", "var", "type", "struct", "interface", "func", "method"}
-		
+
 		for _, constructType := range constructTypes {
 			if constructs, exists := fileConstructsByType[constructType]; exists && len(constructs) > 0 {
 				// Sort constructs by name for consistent output
 				sort.Slice(constructs, func(i, j int) bool {
 					return constructs[i].Name < constructs[j].Name
 				})
-				
+
 				for _, construct := range constructs {
 					xml.WriteString(construct.Signature)
 					if constructType == "struct" && len(construct.Fields) > 0 {
@@ -796,29 +798,29 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 				xml.WriteString("\n")
 			}
 		}
-		
+
 		xml.WriteString("</file>\n\n")
 	}
-	
+
 	// Package sections with exported constructs only
 	sortedPackages := make([]string, 0, len(packageAnalyses))
 	for packageName := range packageAnalyses {
 		sortedPackages = append(sortedPackages, packageName)
 	}
 	sort.Strings(sortedPackages)
-	
+
 	for _, packageName := range sortedPackages {
 		pkgAnalysis := packageAnalyses[packageName]
-		xml.WriteString(fmt.Sprintf(`<package name="%s">` + "\n", packageName))
+		xml.WriteString(fmt.Sprintf(`<package name="%s">`+"\n", packageName))
 		if includeNonExported {
 			xml.WriteString(fmt.Sprintf("// Package: %s (all constructs)\n\n", packageName))
 		} else {
 			xml.WriteString(fmt.Sprintf("// Package: %s (exported constructs only)\n\n", packageName))
 		}
-		
+
 		// Sort construct types for consistent output
 		constructTypes := []string{"const", "var", "type", "struct", "interface", "func", "method"}
-		
+
 		// Choose which construct collection to use
 		var constructsToUse map[string][]GoConstruct
 		if includeNonExported {
@@ -826,14 +828,14 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 		} else {
 			constructsToUse = pkgAnalysis.ExportedOnly
 		}
-		
+
 		for _, constructType := range constructTypes {
 			if constructs, exists := constructsToUse[constructType]; exists && len(constructs) > 0 {
 				// Sort constructs by name for consistent output
 				sort.Slice(constructs, func(i, j int) bool {
 					return constructs[i].Name < constructs[j].Name
 				})
-				
+
 				for _, construct := range constructs {
 					xml.WriteString(construct.Signature)
 					if constructType == "struct" && len(construct.Fields) > 0 {
@@ -854,12 +856,12 @@ func (p *GoParser) generateRepomixXML(repositoryID, localPath string, fileAnalys
 				xml.WriteString("\n")
 			}
 		}
-		
+
 		xml.WriteString("</package>\n\n")
 	}
-	
+
 	xml.WriteString("</files>\n")
 	xml.WriteString("</repository>\n")
-	
+
 	return xml.String()
 }
